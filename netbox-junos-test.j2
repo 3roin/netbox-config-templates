@@ -1,0 +1,117 @@
+{#
+**************************************************
+###         System configuration               ###
+**************************************************
+#}
+system {
+    host-name {{ device.name }};
+}
+{#
+**************************************************
+###         Interfaces configuration           ###
+**************************************************
+#}
+interfaces {
+    {%- for interface in device.interfaces.all() %}
+    {%- if "irb" in interface.name %}
+    irb {
+        {%- if interface.enabled == false %}
+        disabled
+        {%- endif %} 
+        unit {% for char in interface.name %}{%- if char.isdigit() %}{{ char }}{%- endif %}{%- endfor %} {
+            {%- if interface.description != "" %}
+            description "{{ interface.description }}";
+            {%- else %}
+            description "Missing description";
+            {%- endif %}
+            family {
+                inet {
+                    {%- for ipaddr in interface.ip_addresses.all() %}
+                    address {{ ipaddr }} {
+                    }
+                    {%- endfor %}
+                }
+            }
+        }
+    }
+    {%- elif interface.lag != None %}
+    {{ interface.name }} {
+        {%- if interface.enabled == false %}
+        disable
+        {%- endif %} 
+        {%- if interface.description != "" %}
+        description "{{ interface.description }}";
+        {%- else %}
+        description "Missing description";
+        {%- endif %}
+        gigether-options {
+            802.3ad {
+                {{ interface.lag.name }};
+            }
+        }
+    }
+    {%- else %}
+    {{ interface.name }} {
+        {%- if interface.enabled == false %}
+        disable
+        {%- endif %} 
+        {%- if interface.description != "" %}
+        description "{{ interface.description }}";
+        {%- else %}
+        description "Missing description";
+        {%- endif %}
+        unit 0 {
+            family {
+                ethernet-switching {
+                    {%- if interface.mode == "access" %}
+                    interface-mode access;
+                    vlan {
+                        members {{ interface.untagged_vlan.vid }};
+                    }
+                    {%- elif interface.mode == "tagged" %}
+                    interface-mode trunk;
+                    vlan {
+                        members [ {% for vlan in interface.tagged_vlans.all() %}{{ vlan.vid }} {% endfor %}];
+                    }
+                    {%- elif "tagged-all" in interface.mode %}
+                    interface-mode trunk;
+                    vlan {
+                        members all;
+                    }
+                    {%- endif %}
+                }
+            }
+        }
+    }
+    {%- endif %}
+    {%- endfor %}
+}
+{#
+**************************************************
+###         VLANs configuration                ###
+**************************************************
+## Old version - Duplicated vlan creation issue ##
+vlans {
+    {%- for interface in device.interfaces.all() %}
+    {%- if interface.untagged_vlan != None %}
+    VL_{{ interface.untagged_vlan.name }} {
+        vlan-id {{ interface.untagged_vlan.vid }};
+    }
+    {%- elif interface.tagged_vlans != None %}
+    {%- for vlan in interface.tagged_vlans.all() %}
+    VL_{{ vlan.name }} {
+        vlan-id {{ vlan.vid }}
+    }
+    {%- endfor %}
+    {%- endif %}
+    {%- endfor %}
+}
+##   New version - vlan site must be correct    ##
+#}
+vlans {
+    {%- for vl in device.site.vlans.all() %}
+    VL_{{ vl.name }} {
+        vlan-id {{vl.vid }}
+    {%- endfor %}
+    }
+}

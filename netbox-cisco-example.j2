@@ -1,0 +1,42 @@
+hostname {{ device.name }}
+
+{% for vl in device.site.vlans.all() %}
+vlan {{vl.vid }} name {{ vl.name }}
+{%- endfor %}
+
+{% for interface in device.interfaces.all() %}
+
+{%- if interface.mgmt_only == false %}
+interface {{ interface.name }} 
+{%- if interface.enabled == false %} shutdown
+{%- elif interface.enabled == true %} no shutdown 
+{%- endif %} 
+
+{%- if interface.mode == "access" %} 
+switchport mode access switchport access vlan {{ interface.untagged_vlan.vid }}
+{%- elif interface.mode == "tagged" %} 
+switchport mode trunk 
+{%- for vlan in interface.tagged_vlans.all() %} 
+switchport trunk allowed vlan add {{ vlan.vid }}
+{%- endfor %}
+{%- elif "tagged-all" in interface.mode %} 
+switchport mode trunk switchport trunk allowed vlan all
+{%- else %} 
+{%- if interface.lag != None %}
+channel-group
+{% for char in interface.lag.name %}
+{%- if char.isdigit() %}
+{{ char }}
+{%- endif %}
+{%- endfor %} 
+mode on 
+{%- endif %}
+{%- endif %}
+{% else %}
+interface {{ interface.name }} description Management VLAN 
+{%- if interface.enabled == false %} shutdown
+{%- elif interface.enabled == true %} no shutdown
+{%- endif %}
+ip address {{ device.primary_ip.address }} {{ device.primary_ip.address.netmask }}
+{%- endif %}
+{%- endfor %}
