@@ -1,4 +1,9 @@
-{#
+{# 
+To-Do:
+1. L3 interfaces configuration - Done
+2. Auto assign L3 interface to corresponding vlan
+3. Auto assign interface description based on connections
+if exists (vlan l3-interface = irb.<vlan-id>)
 **************************************************
 ###         System configuration               ###
 **************************************************
@@ -13,11 +18,37 @@ system {
 #}
 interfaces {
     {%- for interface in device.interfaces.all() %}
-    {%- if "irb" in interface.name %}
+    {%- set count_ipaddr = interface.ip_addresses.all() | length %}
+    {%- if count_ipaddr > 0 %}
+    {{ interface.name }} {
+        {%- if interface.enabled == false %}
+        disable;
+        {%- endif %}
+        {%- if interface.description != "" %}
+        description "{{ interface.description }}";
+        {%- else %}
+        description "Missing description";
+        {%- endif %}
+        unit 0 {
+            family {
+                inet {
+                    {%- for ipaddr in interface.ip_addresses.all() %}
+                    address {{ ipaddr }};
+                    {%- endfor %}
+                }
+            }
+        }
+    }
+    {%- elif "irb" in interface.name %}
     irb {
         {%- if interface.enabled == false %}
         disable;
-        {%- endif %} 
+        {%- endif %}
+        {%- if interface.description != "" %}
+        description "{{ interface.description }}";
+        {%- else %}
+        description "Missing description";
+        {%- endif %}
         unit {% for char in interface.name %}{%- if char.isdigit() %}{{ char }}{%- endif %}{%- endfor %} {
             {%- if interface.description != "" %}
             description "{{ interface.description }}";
