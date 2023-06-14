@@ -16,7 +16,7 @@ interfaces {
     {%- if "irb" in interface.name %}
     irb {
         {%- if interface.enabled == false %}
-        disabled
+        disable;
         {%- endif %} 
         unit {% for char in interface.name %}{%- if char.isdigit() %}{{ char }}{%- endif %}{%- endfor %} {
             {%- if interface.description != "" %}
@@ -27,8 +27,7 @@ interfaces {
             family {
                 inet {
                     {%- for ipaddr in interface.ip_addresses.all() %}
-                    address {{ ipaddr }} {
-                    }
+                    address {{ ipaddr }};
                     {%- endfor %}
                 }
             }
@@ -37,7 +36,7 @@ interfaces {
     {%- elif interface.lag != None %}
     {{ interface.name }} {
         {%- if interface.enabled == false %}
-        disable
+        disable;
         {%- endif %} 
         {%- if interface.description != "" %}
         description "{{ interface.description }}";
@@ -50,10 +49,10 @@ interfaces {
             }
         }
     }
-    {%- else %}
+    {%- elif interface.tagged_vlans != None %}
     {{ interface.name }} {
         {%- if interface.enabled == false %}
-        disable
+        disable;
         {%- endif %} 
         {%- if interface.description != "" %}
         description "{{ interface.description }}";
@@ -63,12 +62,41 @@ interfaces {
         unit 0 {
             family {
                 ethernet-switching {
-                    {%- if interface.mode == "access" %}
-                    interface-mode access;
+                    {%- if interface.mode == "tagged" %}
+                    interface-mode trunk;
                     vlan {
-                        members {{ interface.untagged_vlan.vid }};
+                        members [ {% for vlan in interface.tagged_vlans.all() %}{{ vlan.vid }} {% endfor %}];
                     }
-                    {%- elif interface.mode == "tagged" %}
+                    {%- if interface.untagged_vlan != None %}
+                    native-vlan-id {{ interface.untagged_vlan.vid }}
+                    {%- endif %}
+                    {%- elif "tagged-all" in interface.mode %}
+                    interface-mode trunk;
+                    vlan {
+                        members all;
+                    }
+                    {%- if interface.untagged_vlan != None %}
+                    native-vlan-id {{ interface.untagged_vlan.vid }}
+                    {%- endif %}
+                    {%- endif %}
+                }
+            }
+        }
+    }
+    {%- elif interface.tagged_vlans != None %}
+    {{ interface.name }} {
+        {%- if interface.enabled == false %}
+        disable;
+        {%- endif %} 
+        {%- if interface.description != "" %}
+        description "{{ interface.description }}";
+        {%- else %}
+        description "Missing description";
+        {%- endif %}
+        unit 0 {
+            family {
+                ethernet-switching {
+                    {%- if interface.mode == "tagged" %}
                     interface-mode trunk;
                     vlan {
                         members [ {% for vlan in interface.tagged_vlans.all() %}{{ vlan.vid }} {% endfor %}];
@@ -79,6 +107,27 @@ interfaces {
                         members all;
                     }
                     {%- endif %}
+                }
+            }
+        }
+    }
+    {%- elif interface.mode == "access" %}
+    {{ interface.name }} {
+        {%- if interface.enabled == false %}
+        disable;
+        {%- endif %} 
+        {%- if interface.description != "" %}
+        description "{{ interface.description }}";
+        {%- else %}
+        description "Missing description";
+        {%- endif %}
+        unit 0 {
+            family {
+                ethernet-switching {
+                    interface-mode access;
+                    vlan {
+                        members {{ interface.untagged_vlan.vid }};
+                    }
                 }
             }
         }
