@@ -9,7 +9,7 @@ if exists
 system {
     host-name {{ device.name }};
     root-authentication {
-        encrypted-password "$6$ZwmTCtsz$Mr50GDZGgrK4091jhvY.Fc6WWMERo66X48zkr4Zgn1OG1kjzkgdD2SIGM0c8iv7rLBCDDAraPCSWbIDaMiDj21";
+        encrypted-password "{{ rootpasswd }}";
     }
     login {
         idle-timeout 60;
