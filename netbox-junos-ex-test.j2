@@ -151,25 +151,8 @@ interfaces {
 }
 {#
 **************************************************
-###         VLANs configuration                ###
+###            VLANs configuration             ###
 **************************************************
-## Old version - Duplicated vlan creation issue ##
-vlans {
-    {%- for interface in device.interfaces.all() %}
-    {%- if interface.untagged_vlan != None %}
-    VL_{{ interface.untagged_vlan.name }} {
-        vlan-id {{ interface.untagged_vlan.vid }};
-    }
-    {%- elif interface.tagged_vlans != None %}
-    {%- for vlan in interface.tagged_vlans.all() %}
-    VL_{{ vlan.name }} {
-        vlan-id {{ vlan.vid }}
-    }
-    {%- endfor %}
-    {%- endif %}
-    {%- endfor %}
-}
-##   New version - vlan site must be correct    ##
 #}
 vlans {
     {%- for vl in device.site.vlans.all() %}
