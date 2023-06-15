@@ -103,7 +103,7 @@ interfaces {
     {{ interface.name }} {
         {%- if interface.enabled == false %}
         disable;
-        {%- endif %} 
+        {%- endif %}
         {%- if interface.description != "" %}
         description "{{ interface.description }}";
         {%- else %}
@@ -119,7 +119,7 @@ interfaces {
     {{ interface.name }} {
         {%- if interface.enabled == false %}
         disable;
-        {%- endif %} 
+        {%- endif %}
         {%- if interface.description != "" %}
         description "{{ interface.description }}";
         {%- else %}
@@ -213,5 +213,20 @@ vlans {
         {%- endif %}
         {%- endfor %}
     }
+    {%- endfor %}
+}
+{#
+**************************************************
+###              VRF configuration             ###
+**************************************************
+#}
+routing-instances {
+    {%- for interface in device.interfaces.all() %}
+    {%- if interface.vrf != None %}
+    {{ interface.vrf.name }} {
+        instance-type virtual-router;
+        interface {{ interface.name }};
+    }
+    {%- endif %}
     {%- endfor %}
 }
