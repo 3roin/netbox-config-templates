@@ -1,8 +1,7 @@
 {# 
 To-Do:
-1. Auto assign L3 interface to corresponding vlan
 2. Auto assign interface description based on connections
-if exists (vlan l3-interface = irb.<vlan-id>)
+if exists
 **************************************************
 ###         System configuration               ###
 **************************************************
@@ -175,7 +174,15 @@ vlans {
 vlans {
     {%- for vl in device.site.vlans.all() %}
     VL_{{ vl.name }} {
-        vlan-id {{ vl.vid }}
+        vlan-id {{ vl.vid }};
+        {%- for interface in device.interfaces.all() %}
+        {%- if "irb" in interface.name %}
+        {%- set unit_id = interface.name.split(".")[1] | int %}
+        {%- if unit_id == vl.vid %}
+        l3-interface {{ interface.name }};
+        {%- endif %}
+        {%- endif %}
+        {%- endfor %}
     {%- endfor %}
     }
 }
