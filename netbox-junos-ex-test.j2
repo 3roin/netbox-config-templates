@@ -8,6 +8,47 @@ if exists
 #}
 system {
     host-name {{ device.name }};
+    login {
+        idle-timeout 60;
+    }
+    services {
+        ssh {
+            root-login allow;
+            protocol-version v2;
+        }
+        netconf {
+            ssh {
+                port 830;
+            }
+        }
+    }
+    syslog {
+        user * {
+            any emergency;
+        }
+        file messages {
+            any notice;
+            authorization any;
+            archive size 2m files 5;
+        }
+    }
+}
+{#
+**************************************************
+###         Chassis configuration              ###
+**************************************************
+#}
+chassis {
+    aggregated-devices {
+        ethernet {
+            device-count 16;
+        }
+    }
+    alarm {
+        management-ethernet {
+            link-down ignore;
+        }
+    }
 }
 {#
 **************************************************
@@ -36,6 +77,7 @@ interfaces {
             minimum-links 1;
         }
         {%- endif %}
+    }
         {%- if "." in interface.name %}
         unit {{ unit_id }} {
         {%- else %}
@@ -166,6 +208,6 @@ vlans {
         {%- endif %}
         {%- endif %}
         {%- endfor %}
-    {%- endfor %}
     }
+    {%- endfor %}
 }
