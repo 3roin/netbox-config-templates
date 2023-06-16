@@ -12,7 +12,7 @@ system {
         encrypted-password "{{ rootpasswd }}";
     }
     login {
-        idle-timeout 60;
+        idle-timeout {{ idletimeout }};
     }
     services {
         ssh {
@@ -21,7 +21,7 @@ system {
         }
         netconf {
             ssh {
-                port 830;
+                port {{ netconfport }};
             }
         }
     }
@@ -46,7 +46,7 @@ system {
 chassis {
     aggregated-devices {
         ethernet {
-            device-count 16;
+            device-count {{ aggdevcount }};
         }
     }
     alarm {
@@ -226,7 +226,46 @@ routing-instances {
     {{ interface.vrf.name }} {
         instance-type virtual-router;
         interface {{ interface.name }};
+        routing-options {
+            {%- if staticroutes != None %}
+            {%- for vrf in staticroutes.vrfs %}
+            {%- if vrf == interface.vrf.name %}
+            static {
+                {%- for dest in staticroutes.vrfs[vrf] %}
+                route {{ dest }} {
+                    {%- for nh in staticroutes.vrfs[vrf][dest] %}
+                    next-hop {{ nh }};
+                    {%- endfor %}
+                }
+                {%- endfor %}
+            }
+            {%- endif %}
+            {%- endfor %}
+            {%- endif %}
+        }        
     }
     {%- endif %}
     {%- endfor %}
+}
+{#
+**************************************************
+###        Routing-options configuration       ###
+**************************************************
+#}
+routing-options {
+    {%- if staticroutes != None %}
+    {%- for vrf in staticroutes.vrfs %}
+    {%- if vrf == "default" %}
+    static {
+        {%- for dest in staticroutes.vrfs[vrf] %}
+        route {{ dest }} {
+            {%- for nh in staticroutes.vrfs[vrf][dest] %}
+            next-hop {{ nh }};
+            {%- endfor %}
+        }
+        {%- endfor %}
+    }
+    {%- endif %}
+    {%- endfor %}
+    {%- endif %}
 }
