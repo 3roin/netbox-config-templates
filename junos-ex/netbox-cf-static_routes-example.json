@@ -1,0 +1,22 @@
+{
+    "vrfs": {
+        "mgmt": {
+            "dests": {
+                "0.0.0.0/0": {
+                    "nhs": {
+                        "172.16.0.254": {
+                            "metric": "default",
+                            "preference": "999",
+                            "qualified": true
+                        },
+                        "172.16.1.254": {
+                            "metric": "default",
+                            "preference": "default",
+                            "qualified": false
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

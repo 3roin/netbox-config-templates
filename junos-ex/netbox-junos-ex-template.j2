@@ -11,10 +11,10 @@ connections if exists
 system {
     host-name {{ device.name }};
     root-authentication {
-        encrypted-password "{{ rootpasswd }}";
+        encrypted-password "{{ device.cf.root_password }}";
     }
     login {
-        idle-timeout {{ idletimeout }};
+        idle-timeout {{ device.cf.idle_timeout | string }};
     }
     services {
         ssh {
@@ -23,7 +23,7 @@ system {
         }
         netconf {
             ssh {
-                port {{ netconfport }};
+                port {{ device.cf.netconf_port | string }};
             }
         }
     }
@@ -48,7 +48,7 @@ system {
 chassis {
     aggregated-devices {
         ethernet {
-            device-count {{ aggdevcount }};
+            device-count {{ device.cf.agg_dev_count | string }};
         }
     }
     alarm {
@@ -229,13 +229,13 @@ routing-instances {
         instance-type virtual-router;
         interface {{ interface.name }};
         routing-options {
-            {%- if staticroutes != None %}
-            {%- for vrf in staticroutes.vrfs %}
+            {%- if device.cf.static_routes != None %}
+            {%- for vrf in device.cf.static_routes.vrfs %}
             {%- if vrf == interface.vrf.name %}
             static {
-                {%- for dest in staticroutes.vrfs[vrf] %}
+                {%- for dest in device.cf.static_routes.vrfs[vrf].dests %}
                 route {{ dest }} {
-                    {%- for nh in staticroutes.vrfs[vrf][dest] %}
+                    {%- for nh in device.cf.static_routes.vrfs[vrf].dests[dest].nhs %}
                     next-hop {{ nh }};
                     {%- endfor %}
                 }
@@ -255,13 +255,13 @@ routing-instances {
 **************************************************
 #}
 routing-options {
-    {%- if staticroutes != None %}
-    {%- for vrf in staticroutes.vrfs %}
+    {%- if device.cf.static_routes != None %}
+    {%- for vrf in device.cf.static_routes.vrfs %}
     {%- if vrf == "default" %}
     static {
-        {%- for dest in staticroutes.vrfs[vrf] %}
+        {%- for dest in device.cf.static_routes.vrfs[vrf].dests %}
         route {{ dest }} {
-            {%- for nh in staticroutes.vrfs[vrf][dest] %}
+            {%- for nh in device.cf.static_routes.vrfs[vrf].dests[dest].nhs %}
             next-hop {{ nh }};
             {%- endfor %}
         }
