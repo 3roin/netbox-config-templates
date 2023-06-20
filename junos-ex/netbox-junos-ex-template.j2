@@ -1,4 +1,4 @@
-{#**************************************************
+{#- **************************************************
 ###           System configuration               ###
 **************************************************#}
 {%- if device.virtual_chassis %}
@@ -47,7 +47,7 @@ system {
         }
     }
 }
-{#**************************************************
+{#- **************************************************
 ###           Chassis configuration              ###
 **************************************************#}
 chassis {
@@ -62,7 +62,7 @@ chassis {
         }
     }
 }
-{#**************************************************
+{#- **************************************************
 ###               VC configuration               ###
 **************************************************#}
 {%- if device.virtual_chassis %}
@@ -83,7 +83,7 @@ virtual-chassis {
     {%- endfor %}
 }
 {%- endif %}
-{#**************************************************
+{#- **************************************************
 ###           Interfaces configuration           ###
 **************************************************#}
 {%- macro ifs_config(interfaces) %}
@@ -176,7 +176,7 @@ interfaces {
 {{ ifs_config(device.interfaces.all()) }}
 {%- endif %}
 }
-{#**************************************************
+{#- **************************************************
 ###              VLANs configuration             ###
 **************************************************#}
 vlans {
@@ -197,10 +197,10 @@ vlans {
     }
     {%- endfor %}
 }
-{#**************************************************
+{#- **************************************************
 ###          Routing-options configuration       ###
 **************************************************#}
-{% if device.cf.static_routes != None %}
+{%- if device.cf.static_routes != None %}
 routing-options {
 {%- for vrf, routes in device.cf.static_routes.vrfs.items() %}
 {%- if vrf == "default" %}
@@ -217,11 +217,11 @@ routing-options {
 {%- endfor %}
 }
 {%- endif %}
-{#**************************************************
+{#- **************************************************
 ###                VRF configuration             ###
-**************************************************#}
-{# do if vrf exists on device only #}
-{# check if VC to add all members interfaces #}
+**************************************************
+do if vrf exists on device only
+check if VC to add all members interfaces #}
 routing-instances {
     {%- for interface in device.interfaces.all() %}
     {%- if interface.vrf != None %}
@@ -239,12 +239,13 @@ routing-instances {
                     next-hop {{ nh }};
                     {%- endfor %}
                 }
-                {% endfor %}
+                {%- endfor %}
             }
         {%- endif %}
         {%- endfor %}
         }
         {%- endif %}
+    }
     {%- endif %}
     {%- endfor %}
 }
