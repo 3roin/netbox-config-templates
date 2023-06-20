@@ -1,6 +1,7 @@
-Name,Content types,Label,Group name,Type,Required,Description,ID,Default,Search weight,Filter logic,UI visibility,Cloneable,Display weight,Choices,Created,Last updated
-agg_dev_count,dcim.device,Aggregation Device Count,,Integer,False,,1,16,1000,Loose,Read/Write,False,100,[],2023-06-18 10:25,2023-06-18 10:25
-idle_timeout,dcim.device,Login idle timeout,,Integer,False,,2,60,1000,Loose,Read/Write,False,100,[],2023-06-18 10:29,2023-06-18 10:29
-netconf_port,dcim.device,NETCONF port,,Integer,False,,3,830,1000,Loose,Read/Write,False,100,[],2023-06-18 10:30,2023-06-18 10:30
-root_password,dcim.device,Root password,,Text,False,,4,$6$ZwmTCtsz$Mr50GDZGgrK4091jhvY.Fc6WWMERo66X48zkr4Zgn1OG1kjzkgdD2SIGM0c8iv7rLBCDDAraPCSWbIDaMiDj21,1000,Loose,Read/Write,False,100,[],2023-06-18 10:31,2023-06-18 10:31
-static_routes,dcim.device,Static Routes,,JSON,False,,5,,1000,Loose,Read/Write,False,100,[],2023-06-18 10:42,2023-06-18 10:46
+Name,Content types,Label,Group name,Type,Required,Description,Default,Search weight,Filter logic,UI visibility,Display weight,Choices,ID,Cloneable,Created,Last updated
+agg_dev_count,dcim.device,Aggregation Device Count,,Integer,False,,16,1000,Loose,Read/Write,100,[],1,False,2023-06-18 10:25,2023-06-18 10:25
+idle_timeout,dcim.device,Login idle timeout,,Integer,False,,60,1000,Loose,Read/Write,100,[],2,False,2023-06-18 10:29,2023-06-18 10:29
+netconf_port,dcim.device,NETCONF port,,Integer,False,,830,1000,Loose,Read/Write,100,[],3,False,2023-06-18 10:30,2023-06-18 10:30
+root_password,dcim.device,Root password,,Text,False,,$6$ZwmTCtsz$Mr50GDZGgrK4091jhvY.Fc6WWMERo66X48zkr4Zgn1OG1kjzkgdD2SIGM0c8iv7rLBCDDAraPCSWbIDaMiDj21,1000,Loose,Read/Write,100,[],4,False,2023-06-18 10:31,2023-06-18 10:31
+static_routes,dcim.device,Static Routes,,JSON,False,,,1000,Loose,Read/Write,100,[],5,False,2023-06-18 10:42,2023-06-18 10:46
+vc_role,dcim.device,Virtual Chassis Role,,Selection,False,,,1000,Loose,Read/Write,100,"['RE', 'LC']",7,False,2023-06-19 13:38,2023-06-19 13:38
