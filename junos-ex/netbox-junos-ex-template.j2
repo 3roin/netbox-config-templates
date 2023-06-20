@@ -202,21 +202,21 @@ vlans {
 **************************************************#}
 {% if device.cf.static_routes != None %}
 routing-options {
-{% for vrf, routes in device.cf.static_routes.vrfs.items() %}
-{% if vrf == "default" %}
+{%- for vrf, routes in device.cf.static_routes.vrfs.items() %}
+{%- if vrf == "default" %}
     static {
-        {% for dest, nhs in routes.dests.items() %}
+        {%- for dest, next_hops in routes.dests.items() %}
         route {{ dest }} {
-            {% for nh in nhs %}
+            {%- for nh, props in next_hops.nhs.items() %}
             next-hop {{ nh }};
-            {% endfor %}
+            {%- endfor %}
         }
-        {% endfor %}
+        {%- endfor %}
     }
-{% endif %}
-{% endfor %}
+{%- endif %}
+{%- endfor %}
 }
-{% endif %}
+{%- endif %}
 {#**************************************************
 ###                VRF configuration             ###
 **************************************************#}
@@ -228,23 +228,23 @@ routing-instances {
     {{ interface.vrf.name }} {
         instance-type virtual-router;
         interface {{ interface.name }};
-        {% if device.cf.static_routes != None %}
+        {%- if device.cf.static_routes != None %}
         routing-options {
-        {% for vrf, routes in device.cf.static_routes.vrfs.items() %}
-        {% if vrf == "default" %}
+        {%- for vrf, routes in device.cf.static_routes.vrfs.items() %}
+        {%- if vrf == interface.vrf.name %}
             static {
-                {% for dest, nhs in routes.dests.items() %}
+                {%- for dest, next_hops in routes.dests.items() %}
                 route {{ dest }} {
-                    {% for nh in nhs %}
+                    {%- for nh, props in next_hops.nhs.items() %}
                     next-hop {{ nh }};
-                    {% endfor %}
+                    {%- endfor %}
                 }
                 {% endfor %}
             }
-        {% endif %}
-        {% endfor %}
+        {%- endif %}
+        {%- endfor %}
         }
-        {% endif %}
+        {%- endif %}
     {%- endif %}
     {%- endfor %}
 }
