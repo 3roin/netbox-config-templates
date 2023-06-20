@@ -1,15 +1,22 @@
-{# 
-**************************************************
-To-Do:
-1. Auto assign interface description based on 
-connections if exists
-
-**************************************************
-###         System configuration               ###
-**************************************************
-#}
+{#**************************************************
+###           System configuration               ###
+**************************************************#}
+{%- if device.virtual_chassis %}
+groups {
+    {%- for node in device.virtual_chassis.members.all() %}
+    member{{ node.vc_position }} {
+        system {
+            host-name {{ node.name }};
+        }
+    }
+    {%- endfor %}
+}
+apply-groups [ {% for node in device.virtual_chassis.members.all() %}member{{ node.vc_position }} {% endfor %}];
+{%- endif %}
 system {
+    {%- if not device.virtual_chassis %}
     host-name {{ device.name }};
+    {%- endif %}
     root-authentication {
         encrypted-password "{{ device.cf.root_password }}";
     }
@@ -40,11 +47,9 @@ system {
         }
     }
 }
-{#
-**************************************************
-###         Chassis configuration              ###
-**************************************************
-#}
+{#**************************************************
+###           Chassis configuration              ###
+**************************************************#}
 chassis {
     aggregated-devices {
         ethernet {
@@ -57,26 +62,49 @@ chassis {
         }
     }
 }
-{#
-**************************************************
-###         Interfaces configuration           ###
-**************************************************
-#}
-interfaces {
-    {%- for interface in device.interfaces.all() %}
-    {%- if "." in interface.name %}
-    {%- set unit_id = interface.name.split(".")[1] %}
-    {%- set ifname = interface.name.split(".")[0] %}
-    {%- else %}
-    {%- set ifname = interface.name %}
+{#**************************************************
+###               VC configuration               ###
+**************************************************#}
+{%- if device.virtual_chassis %}
+virtual-chassis {
+    preprovisioned;
+    {%- if device.virtual_chassis.members.all() | length == 2 %}
+    no-split-detection;
     {%- endif %}
-    {%- set count_ipaddr = interface.ip_addresses.all() | length %}
-    {%- if count_ipaddr > 0 %}
-    {{ ifname }} {
-        {%- if interface.enabled == false %}
+    {%- for node in device.virtual_chassis.members.all() %}
+    member {{ node.vc_position }} {
+        {%- if node.cf.vc_role == "RE" %}
+        role routing-engine;
+        {%- else %}
+        role line-card;
+        {%- endif %}
+        serial-number {{ node.serial }};
+    }
+    {%- endfor %}
+}
+{%- endif %}
+{#**************************************************
+###           Interfaces configuration           ###
+**************************************************#}
+{%- macro ifs_config(interfaces) %}
+{%- for interface in interfaces %}
+{%- set ifname = interface.name.split('.')|first %}
+{%- set unit_id = interface.name.split('.')|last if '.' in interface.name else None %}
+{%- set count_ipaddr = interface.ip_addresses.all()|length %}
+{%- set is_lag = interface.lag != None %}
+{%- set lag_agg = interface.type == "lag" %}
+{%- set has_tagged_vlans = interface.tagged_vlans != None and 'tagged' in interface.mode %}
+{%- set is_access_mode = interface.mode == 'access' %}
+    {{ interface.name }} {
+        {%- if not interface.enabled %}
         disable;
         {%- endif %}
-        {%- if interface.type == "lag" %}
+        {%- if interface.description %}
+        description "{{ interface.description }}";
+        {%- else %}
+        description "Missing description";
+        {%- endif %}
+        {%- if lag_agg %}
         aggregated-ether-options {
             lacp {
                 active;
@@ -84,97 +112,47 @@ interfaces {
             minimum-links 1;
         }
         {%- endif %}
-        {%- if "." in interface.name %}
-        unit {{ unit_id }} {
+        {%- if count_ipaddr > 0 %}
+        {%- if '.' in interface.name %}
+        unit {{ unit_id or 0 }} {
         {%- else %}
         unit 0 {
         {%- endif %}
-            {%- if interface.description != "" %}
-            description "{{ interface.description }}";
-            {%- else %}
-            description "Missing description";
-            {%- endif %}
             family inet {
                 {%- for ipaddr in interface.ip_addresses.all() %}
                 address {{ ipaddr }};
                 {%- endfor %}
             }
         }
-    }
-    {%- elif interface.lag != None %}
-    {{ interface.name }} {
-        {%- if interface.enabled == false %}
-        disable;
-        {%- endif %}
-        {%- if interface.description != "" %}
-        description "{{ interface.description }}";
-        {%- else %}
-        description "Missing description";
-        {%- endif %}
+        {%- elif is_lag %}
         gigether-options {
             802.3ad {
                 {{ interface.lag.name }};
             }
         }
-    }
-    {%- elif interface.tagged_vlans != None and "tagged" in interface.mode %}
-    {{ interface.name }} {
-        {%- if interface.enabled == false %}
-        disable;
-        {%- endif %}
-        {%- if interface.description != "" %}
-        description "{{ interface.description }}";
-        {%- else %}
-        description "Missing description";
-        {%- endif %}
-        {%- if interface.type == "lag" %}
-        aggregated-ether-options {
-            lacp {
-                active;
-            }
-            minimum-links 1;
-        }
-        {%- endif %}
+        {%- elif has_tagged_vlans %}
         unit 0 {
             family ethernet-switching {
-                {%- if interface.mode == "tagged" %}
+            {%- if interface.mode == 'tagged' %}
                 interface-mode trunk;
                 vlan {
                     members [ {% for vlan in interface.tagged_vlans.all() %}{{ vlan.vid }} {% endfor %}];
                 }
                 {%- if interface.untagged_vlan != None %}
-                native-vlan-id {{ interface.untagged_vlan.vid }}
+                    native-vlan-id {{ interface.untagged_vlan.vid }};
                 {%- endif %}
-                {%- elif "tagged-all" in interface.mode %}
+            {%- elif 'tagged-all' in interface.mode %}
                 interface-mode trunk;
                 vlan {
                     members all;
                 }
                 {%- if interface.untagged_vlan != None %}
-                native-vlan-id {{ interface.untagged_vlan.vid }};
+                    native-vlan-id {{ interface.untagged_vlan.vid }};
                 {%- endif %}
-                {%- endif %}
+            {%- endif %}
             }
         }
-    }
-    {%- elif interface.mode == "access" %}
-    {{ interface.name }} {
-        {%- if interface.enabled == false %}
-        disable;
-        {%- endif %} 
-        {%- if interface.description != "" %}
-        description "{{ interface.description }}";
-        {%- else %}
-        description "Missing description";
-        {%- endif %}
-        {%- if interface.type == "lag" %}
-        aggregated-ether-options {
-            lacp {
-                active;
-            }
-            minimum-links 1;
-        }
-        {%- endif %}
+        {%- elif is_access_mode %}
         unit 0 {
             family ethernet-switching {
                 interface-mode access;
@@ -183,26 +161,28 @@ interfaces {
                 }
             }
         }
-    }
-    {%- else %}
-    {{ interface.name }} {
-        {%- if interface.enabled == false %}
-        disable;
-        {%- endif %} 
-        {%- if interface.description != "" %}
-        description "{{ interface.description }}";
-        {%- endif %}
+        {%- else %}
         unit 0;
+        {%- endif %}
     }
-    {%- endif %}
     {%- endfor %}
+{%- endmacro %}
+interfaces {
+{%- if device.virtual_chassis != None %}
+{%- for node in device.virtual_chassis.members.all() %}
+{{ ifs_config(node.interfaces.all()) }}
+{%- endfor %}
+{%- else %}
+{{ ifs_config(device.interfaces.all()) }}
+{%- endif %}
 }
-{#
-**************************************************
-###            VLANs configuration             ###
-**************************************************
-#}
+{#**************************************************
+###              VLANs configuration             ###
+**************************************************#}
 vlans {
+    default {
+        vlan-id 1;
+    }
     {%- for vl in device.site.vlans.all() %}
     VL_{{ vl.name }} {
         vlan-id {{ vl.vid }};
@@ -217,57 +197,54 @@ vlans {
     }
     {%- endfor %}
 }
-{#
-**************************************************
-###              VRF configuration             ###
-**************************************************
-#}
+{#**************************************************
+###          Routing-options configuration       ###
+**************************************************#}
+{% if device.cf.static_routes != None %}
+routing-options {
+{% for vrf, routes in device.cf.static_routes.vrfs.items() %}
+{% if vrf == "default" %}
+    static {
+        {% for dest, nhs in routes.dests.items() %}
+        route {{ dest }} {
+            {% for nh in nhs %}
+            next-hop {{ nh }};
+            {% endfor %}
+        }
+        {% endfor %}
+    }
+{% endif %}
+{% endfor %}
+}
+{% endif %}
+{#**************************************************
+###                VRF configuration             ###
+**************************************************#}
+{# do if vrf exists on device only #}
+{# check if VC to add all members interfaces #}
 routing-instances {
     {%- for interface in device.interfaces.all() %}
     {%- if interface.vrf != None %}
     {{ interface.vrf.name }} {
         instance-type virtual-router;
         interface {{ interface.name }};
+        {% if device.cf.static_routes != None %}
         routing-options {
-            {%- if device.cf.static_routes != None %}
-            {%- for vrf in device.cf.static_routes.vrfs %}
-            {%- if vrf == interface.vrf.name %}
+        {% for vrf, routes in device.cf.static_routes.vrfs.items() %}
+        {% if vrf == "default" %}
             static {
-                {%- for dest in device.cf.static_routes.vrfs[vrf].dests %}
+                {% for dest, nhs in routes.dests.items() %}
                 route {{ dest }} {
-                    {%- for nh in device.cf.static_routes.vrfs[vrf].dests[dest].nhs %}
+                    {% for nh in nhs %}
                     next-hop {{ nh }};
-                    {%- endfor %}
+                    {% endfor %}
                 }
-                {%- endfor %}
+                {% endfor %}
             }
-            {%- endif %}
-            {%- endfor %}
-            {%- endif %}
-        }        
-    }
-    {%- endif %}
-    {%- endfor %}
-}
-{#
-**************************************************
-###        Routing-options configuration       ###
-**************************************************
-#}
-routing-options {
-    {%- if device.cf.static_routes != None %}
-    {%- for vrf in device.cf.static_routes.vrfs %}
-    {%- if vrf == "default" %}
-    static {
-        {%- for dest in device.cf.static_routes.vrfs[vrf].dests %}
-        route {{ dest }} {
-            {%- for nh in device.cf.static_routes.vrfs[vrf].dests[dest].nhs %}
-            next-hop {{ nh }};
-            {%- endfor %}
+        {% endif %}
+        {% endfor %}
         }
-        {%- endfor %}
-    }
+        {% endif %}
     {%- endif %}
     {%- endfor %}
-    {%- endif %}
 }
