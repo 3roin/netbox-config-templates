@@ -139,7 +139,7 @@ virtual-chassis {
                     members [ {% for vlan in interface.tagged_vlans.all() %}{{ vlan.vid }} {% endfor %}];
                 }
                 {%- if interface.untagged_vlan != None %}
-                    native-vlan-id {{ interface.untagged_vlan.vid }};
+                native-vlan-id {{ interface.untagged_vlan.vid }};
                 {%- endif %}
             {%- elif 'tagged-all' in interface.mode %}
                 interface-mode trunk;
@@ -147,7 +147,7 @@ virtual-chassis {
                     members all;
                 }
                 {%- if interface.untagged_vlan != None %}
-                    native-vlan-id {{ interface.untagged_vlan.vid }};
+                native-vlan-id {{ interface.untagged_vlan.vid }};
                 {%- endif %}
             {%- endif %}
             }
@@ -208,7 +208,18 @@ routing-options {
         {%- for dest, next_hops in routes.dests.items() %}
         route {{ dest }} {
             {%- for nh, props in next_hops.nhs.items() %}
+            {%- if not props["qualified"] %}
             next-hop {{ nh }};
+            {%- else %}
+            qualified-next-hop {{ nh }} {
+                {%- if props["metric"] != "default" %}
+                metric {{ props["metric"] }};
+                {%- endif %}
+                {%- if props["preference"] != "default" %}
+                preference {{ props["preference"] }};
+                {%- endif %}
+            }
+            {%- endif %}
             {%- endfor %}
         }
         {%- endfor %}
@@ -219,24 +230,37 @@ routing-options {
 {%- endif %}
 {#- **************************************************
 ###                VRF configuration             ###
-**************************************************
-do if vrf exists on device only
-check if VC to add all members interfaces #}
+**************************************************#}
+{%- set instances = device.interfaces.all() | selectattr("vrf.name", "defined") | map(attribute="vrf.name") | unique | list %}
+{%- if instances | length > 0 %}
 routing-instances {
-    {%- for interface in device.interfaces.all() %}
-    {%- if interface.vrf != None %}
-    {{ interface.vrf.name }} {
+    {%- for instance in instances %}
+    {{ instance }} {
         instance-type virtual-router;
+        {%- for interface in device.interfaces.all() %}
+        {%- if interface.vrf.name == instance %}
         interface {{ interface.name }};
+        {%- endif %}
+        {%- endfor %}
         {%- if device.cf.static_routes != None %}
         routing-options {
         {%- for vrf, routes in device.cf.static_routes.vrfs.items() %}
-        {%- if vrf == interface.vrf.name %}
+        {%- if vrf == instance %}
             static {
                 {%- for dest, next_hops in routes.dests.items() %}
                 route {{ dest }} {
                     {%- for nh, props in next_hops.nhs.items() %}
+                    {%- if not props["qualified"] %}
                     next-hop {{ nh }};
+                    {%- else %}
+                    qualified-next-hop {{ nh }} {
+                        {%- if props["metric"] != "default" %}
+                        metric {{ props["metric"] }};
+                        {%- endif %}
+                        {%- if props["preference"] != "default" %}
+                        preference {{ props["preference"] }};
+                        {%- endif %}
+                    {%- endif %}
                     {%- endfor %}
                 }
                 {%- endfor %}
@@ -246,6 +270,6 @@ routing-instances {
         }
         {%- endif %}
     }
-    {%- endif %}
     {%- endfor %}
 }
+{%- endif %}
