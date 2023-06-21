@@ -14,7 +14,9 @@ groups {
 apply-groups [ {% for node in device.virtual_chassis.members.all() %}member{{ node.vc_position }} {% endfor %}];
 {%- endif %}
 system {
-    {%- if not device.virtual_chassis %}
+    {%- if device.virtual_chassis %}
+    commit synchronize;
+    {%- else %}
     host-name {{ device.name }};
     {%- endif %}
     root-authentication {
@@ -200,10 +202,13 @@ vlans {
 {#- **************************************************
 ###          Routing-options configuration       ###
 **************************************************#}
-{%- if device.cf.static_routes != None %}
 routing-options {
-{%- for vrf, routes in device.cf.static_routes.vrfs.items() %}
-{%- if vrf == "default" %}
+    {%- if device.virtual_chassis %}
+    nonstop-routing;
+    {%- endif %}
+    {%- if device.cf.static_routes != None %}
+    {%- for vrf, routes in device.cf.static_routes.vrfs.items() %}
+    {%- if vrf == "default" %}
     static {
         {%- for dest, next_hops in routes.dests.items() %}
         route {{ dest }} {
@@ -224,10 +229,20 @@ routing-options {
         }
         {%- endfor %}
     }
-{%- endif %}
-{%- endfor %}
+    {%- endif %}
+    {%- endfor %}
+    {%- endif %}
 }
-{%- endif %}
+{#- **************************************************
+###          Protocols configuration       ###
+**************************************************#}
+protocols {
+    {%- if device.virtual_chassis %}
+    layer2-control {
+        nonstop-bridging;
+    }
+    {%- endif %}
+}
 {#- **************************************************
 ###                VRF configuration             ###
 **************************************************#}
@@ -260,16 +275,17 @@ routing-instances {
                         {%- if props["preference"] != "default" %}
                         preference {{ props["preference"] }};
                         {%- endif %}
+                    }
                     {%- endif %}
                     {%- endfor %}
-                }
                 {%- endfor %}
-            }
+                }
         {%- endif %}
         {%- endfor %}
-        }
+            }
         {%- endif %}
-    }
+        }
     {%- endfor %}
+    }
 }
 {%- endif %}
