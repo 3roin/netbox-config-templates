@@ -53,6 +53,11 @@ system {
 ###           Chassis configuration              ###
 **************************************************#}
 chassis {
+    {%- if device.virtual_chassis %}
+    redundancy {
+        graceful-switchover;
+    }
+    {%- endif %}
     aggregated-devices {
         ethernet {
             device-count {{ device.cf.agg_dev_count | string }};
@@ -93,18 +98,16 @@ virtual-chassis {
 {%- set ifname = interface.name.split('.')|first %}
 {%- set unit_id = interface.name.split('.')|last if '.' in interface.name else None %}
 {%- set count_ipaddr = interface.ip_addresses.all()|length %}
-{%- set is_lag = interface.lag != None %}
+{%- set lag_member = interface.lag != None %}
 {%- set lag_agg = interface.type == "lag" %}
 {%- set has_tagged_vlans = interface.tagged_vlans != None and 'tagged' in interface.mode %}
 {%- set is_access_mode = interface.mode == 'access' %}
-    {{ interface.name }} {
+    {{ ifname }} {
         {%- if not interface.enabled %}
         disable;
         {%- endif %}
-        {%- if interface.description %}
-        description "{{ interface.description }}";
-        {%- else %}
-        description "Missing description";
+        {%- if '.' not in interface.name %}
+        description "{{ interface.description | default("Missing description", true) }}";
         {%- endif %}
         {%- if lag_agg %}
         aggregated-ether-options {
@@ -117,6 +120,7 @@ virtual-chassis {
         {%- if count_ipaddr > 0 %}
         {%- if '.' in interface.name %}
         unit {{ unit_id or 0 }} {
+            description "{{ interface.description | default("Missing description", true) }}"
         {%- else %}
         unit 0 {
         {%- endif %}
@@ -126,13 +130,16 @@ virtual-chassis {
                 {%- endfor %}
             }
         }
-        {%- elif is_lag %}
+        {%- elif lag_member %}
         gigether-options {
             802.3ad {
                 {{ interface.lag.name }};
             }
         }
         {%- elif has_tagged_vlans %}
+        {%- if interface.untagged_vlan != None %}
+        native-vlan-id {{ interface.untagged_vlan.vid }};
+        {%- endif %}
         unit 0 {
             family ethernet-switching {
             {%- if interface.mode == 'tagged' %}
@@ -140,17 +147,11 @@ virtual-chassis {
                 vlan {
                     members [ {% for vlan in interface.tagged_vlans.all() %}{{ vlan.vid }} {% endfor %}];
                 }
-                {%- if interface.untagged_vlan != None %}
-                native-vlan-id {{ interface.untagged_vlan.vid }};
-                {%- endif %}
             {%- elif 'tagged-all' in interface.mode %}
                 interface-mode trunk;
                 vlan {
                     members all;
                 }
-                {%- if interface.untagged_vlan != None %}
-                native-vlan-id {{ interface.untagged_vlan.vid }};
-                {%- endif %}
             {%- endif %}
             }
         }
@@ -190,7 +191,7 @@ vlans {
         vlan-id {{ vl.vid }};
         {%- for interface in device.interfaces.all() %}
         {%- if "irb" in interface.name %}
-        {%- set unit_id = interface.name.split(".")[1] | int %}
+        {%- set unit_id = interface.name.split('.')|last|int if '.' in interface.name else None %}
         {%- if unit_id == vl.vid %}
         l3-interface {{ interface.name }};
         {%- endif %}
