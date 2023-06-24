@@ -139,7 +139,9 @@ virtual-chassis {
                         {%- endfor %}
                         priority {{ gr.priority }};
                         accept-data;
-                        no-preempt;
+                        preempt {
+                            hold-time 180;
+                        }
                     }
                     {%- endfor %}
                 }
