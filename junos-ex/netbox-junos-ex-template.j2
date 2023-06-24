@@ -3,15 +3,18 @@
 **************************************************#}
 {%- if device.virtual_chassis %}
 groups {
-    {%- for node in device.virtual_chassis.members.all() %}
-    member{{ node.vc_position }} {
+    member0 {
         system {
-            host-name {{ node.name }};
+            host-name {% for node in device.virtual_chassis.members.all() %}{%- if node.vc_position == 0 %}{{ node.name }}{%- endif %}{%- endfor %};
         }
     }
-    {%- endfor %}
+    member1 {
+        system {
+            host-name {% for node in device.virtual_chassis.members.all() %}{%- if node.vc_position == 1 %}{{ node.name }}{%- endif %}{%- endfor %};
+        }
+    }
 }
-apply-groups [ {% for node in device.virtual_chassis.members.all() %}member{{ node.vc_position }} {% endfor %}];
+apply-groups [ member0 member1 ];
 {%- endif %}
 system {
     {%- if device.virtual_chassis %}
@@ -95,6 +98,7 @@ virtual-chassis {
 **************************************************#}
 {%- macro ifs_config(interfaces) %}
 {%- for interface in interfaces %}
+{%- set fhrp_enabled = true if interface.fhrp_group_assignments.all()|length > 0 %}
 {%- set ifname = interface.name.split('.')|first %}
 {%- set unit_id = interface.name.split('.')|last if '.' in interface.name else None %}
 {%- set count_ipaddr = interface.ip_addresses.all()|length %}
@@ -126,7 +130,21 @@ virtual-chassis {
         {%- endif %}
             family inet {
                 {%- for ipaddr in interface.ip_addresses.all() %}
+                {%- if fhrp_enabled and ipaddr.role == "vrrp" %}
+                address {{ ipaddr }} {
+                    {%- for gr in interface.fhrp_group_assignments.all() %}
+                    vrrp-group {{ gr.group.group_id }} {
+                        {%- for vip in gr.group.ip_addresses.all() %}
+                        virtual-address {{ (vip|string).split('/')|first }};
+                        {%- endfor %}
+                        priority {{ gr.priority }};
+                        accept-data;
+                    }
+                    {%- endfor %}
+                }
+                {%- else %}
                 address {{ ipaddr }};
+                {%- endif %}
                 {%- endfor %}
             }
         }
@@ -204,6 +222,9 @@ vlans {
 ###          Routing-options configuration       ###
 **************************************************#}
 routing-options {
+    forwarding-table {
+        export lb;
+    }
     {%- if device.virtual_chassis %}
     nonstop-routing;
     {%- endif %}
@@ -235,6 +256,16 @@ routing-options {
     {%- endif %}
 }
 {#- **************************************************
+###          Policy-options configuration       ###
+**************************************************#}
+policy-options {
+    policy-statement lb {
+        then {
+            load-balance per-packet;
+        }
+    }
+}
+{#- **************************************************
 ###          Protocols configuration       ###
 **************************************************#}
 protocols {
@@ -253,11 +284,21 @@ routing-instances {
     {%- for instance in instances %}
     {{ instance }} {
         instance-type virtual-router;
+        {%- if device.virtual_chassis != None %}
+        {%- for node in device.virtual_chassis.members.all() %}
+        {%- for interface in node.interfaces.all() %}
+        {%- if interface.vrf.name == instance %}
+        interface {{ interface.name }};
+        {%- endif %}
+        {%- endfor %}
+        {%- endfor %}
+        {%- else %}
         {%- for interface in device.interfaces.all() %}
         {%- if interface.vrf.name == instance %}
         interface {{ interface.name }};
         {%- endif %}
         {%- endfor %}
+        {%- endif %}
         {%- if device.cf.static_routes != None %}
         routing-options {
         {%- for vrf, routes in device.cf.static_routes.vrfs.items() %}
@@ -279,14 +320,37 @@ routing-instances {
                     }
                     {%- endif %}
                     {%- endfor %}
-                {%- endfor %}
                 }
+                {%- endfor %}
+            }
         {%- endif %}
         {%- endfor %}
-            }
         {%- endif %}
         }
     {%- endfor %}
     }
 }
 {%- endif %}
+{#- **************************************************
+###                Forwarding options              ###
+**************************************************#}
+forwarding-options {
+    {%- if storm_control_profiles %}
+    {%- for scp in storm_control_profiles %}
+    storm-control-profiles {{ scp["name"] }} {
+        all {
+            {%- for param, value in scp.all.items() %}
+            {%- if value | int > 0 %}
+            {{ param }} {{ value }};
+            {%- else %}
+            {{ param }};
+            {%- endif %}
+            {%- endfor %}
+        }
+        {%- if  scp["action-shutdown"] %}
+        action-shutdown;
+        {%- endif %}
+    }
+    {%- endfor %}
+    {%- endif %}
+}

@@ -1,0 +1,13 @@
+{
+    "storm_control_profiles" : [
+        {
+            "name" : "LOCAL-SCP",
+            "all" : {
+                "bandwidth-percentage" : 15,
+                "burst-size" : 1500,
+                "no-multicast": [null]
+            },
+            "action-shutdown" : [null]
+        }
+        ]
+}
