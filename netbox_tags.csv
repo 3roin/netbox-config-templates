@@ -1,0 +1,10 @@
+Name,Items,Slug,Color,Description,ID,Created,Last updated
+LOCAL-SCP,2,local-scp,#9e9e9e,,20,2023-06-25 14:24,2023-06-25 14:24
+area 0,0,area-0,#9e9e9e,,17,2023-06-24 09:21,2023-06-24 12:41
+isis-bcst,0,isis-bcst,#9e9e9e,,13,2023-06-24 09:20,2023-06-24 09:20
+isis-lvl1,0,isis-lvl1,#9e9e9e,,14,2023-06-24 09:20,2023-06-24 09:20
+isis-lvl1_2,0,isis-lvl1_2,#9e9e9e,,16,2023-06-24 09:20,2023-06-24 09:20
+isis-lvl2,0,isis-lvl2,#9e9e9e,,15,2023-06-24 09:20,2023-06-24 09:20
+isis-p2p,0,isis-p2p,#9e9e9e,,12,2023-06-24 09:20,2023-06-24 09:20
+ospf-bcst,0,ospf-bcst,#9e9e9e,,11,2023-06-24 09:19,2023-06-24 09:19
+ospf-p2p,0,ospf-p2p,#9e9e9e,,10,2023-06-24 09:19,2023-06-24 09:19

@@ -22,7 +22,7 @@ For example, in order to create a static route configuration the template will t
 
 ## How to use
 
-Import required jinja templates, custom information from the .csv files, and use example files to store custom data.
+Import required jinja templates, custom information from the .csv files, and example files to store custom data.
 
 **_Details are in progress . . ._**
 
@@ -32,10 +32,15 @@ Import required jinja templates, custom information from the .csv files, and use
 - [+] Include interfaces from all nodes if device is a part of Virtual-hassis
 - [+] Load-balance configuration for routing (The LAG hashing algorithm on EX Series switches is not user configurable)
 - [+] VRRP configuration
+- [+] Storm-Control
+- [-] MSTP configuration
 - [-] DHCP server/relay configuration
 - [-] CoPP (Control-Plane Protection using lo0 filters)
+- [-] AAA configuration (Radius for local and 802.1x)
+- [-] TACACS+ configuration
+- [-] DNS configuration
+- [-] NTP configuration
 - [-] 802.1x authentication
-- [-] Storm-Control
 - [-] Port Security
 - [-] DHCP Security
 - [-] ARP Security

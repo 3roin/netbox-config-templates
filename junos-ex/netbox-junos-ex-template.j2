@@ -163,12 +163,19 @@ virtual-chassis {
         {%- endif %}
         unit 0 {
             family ethernet-switching {
-            {%- if interface.mode == 'tagged' %}
+                {%- for tag in interface.tags.all() %}
+                {%- for scp in storm_control_profiles %}
+                {%- if tag["name"] == scp["name"] %}
+                storm-control {{ scp["name"] }};
+                {%- endif %}
+                {%- endfor %}
+                {%- endfor %}
+                {%- if interface.mode == 'tagged' %}
                 interface-mode trunk;
                 vlan {
                     members [ {% for vlan in interface.tagged_vlans.all() %}{{ vlan.vid }} {% endfor %}];
                 }
-            {%- elif 'tagged-all' in interface.mode %}
+                {%- elif 'tagged-all' in interface.mode %}
                 interface-mode trunk;
                 vlan {
                     members all;
@@ -179,6 +186,13 @@ virtual-chassis {
         {%- elif is_access_mode %}
         unit 0 {
             family ethernet-switching {
+                {%- for tag in interface.tags.all() %}
+                {%- for scp in storm_control_profiles %}
+                {%- if tag["name"] == scp["name"] %}
+                storm-control {{ scp["name"] }};
+                {%- endif %}
+                {%- endfor %}
+                {%- endfor%}
                 interface-mode access;
                 vlan {
                     members {{ interface.untagged_vlan.vid }};
