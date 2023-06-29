@@ -51,6 +51,29 @@ system {
             authorization info;
         }
     }
+    {%- if name_server %}
+    name-server {
+        {%- for dns_srv in name_server %}
+        {{ dns_srv["name"] }};
+        {%- endfor %}
+    }
+    {%- endif %}
+    {%- if ntp %}
+    ntp {
+        {%- for ntp_srv in ntp["server"] %}
+        server {{ ntp_srv["name"] }};
+        {%- endfor %}
+        {%- if device.primary_ip.address %}
+        source-address {{ device.primary_ip.address.ip }};
+        {%- endif %}
+    }
+    {%- endif %}
+    {%- if domain_name %}
+    domain-name {{domain_name }};
+    {%- endif %}
+    {%- if time_zone %}
+    time-zone {{ time_zone }};
+    {%- endif %}
 }
 {#- **************************************************
 ###           Chassis configuration              ###

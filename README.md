@@ -33,13 +33,15 @@ Import required jinja templates, custom information from the .csv files, and exa
 - [+] Load-balance configuration for routing (The LAG hashing algorithm on EX Series switches is not user configurable)
 - [+] VRRP configuration
 - [+] Storm-Control
+- [+] DNS configuration
+- [+] System domain-name configuration
+- [+] NTP configuration
+- [+] Time-Zone configuration
 - [-] MSTP configuration
 - [-] DHCP server/relay configuration
 - [-] CoPP (Control-Plane Protection using lo0 filters)
 - [-] AAA configuration (Radius for local and 802.1x)
 - [-] TACACS+ configuration
-- [-] DNS configuration
-- [-] NTP configuration
 - [-] 802.1x authentication
 - [-] Port Security
 - [-] DHCP Security

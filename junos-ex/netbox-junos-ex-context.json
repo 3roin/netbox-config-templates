@@ -1,4 +1,24 @@
 {
+    "domain_name" : "demo.local",
+    "time_zone" : "GMT-4",
+    "name_server" : [
+        {
+            "name" : "8.8.8.8"
+        },
+        {
+            "name" : "8.8.4.4"
+        }
+        ],
+    "ntp" : {
+        "server" : [
+        {
+            "name" : "202.28.116.236"
+        },
+        {
+            "name" : "202.12.97.45"
+        }
+        ]
+    },
     "storm_control_profiles" : [
         {
             "name" : "LOCAL-SCP",
