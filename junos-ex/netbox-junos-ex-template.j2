@@ -76,6 +76,56 @@ system {
     {%- endif %}
 }
 {#- **************************************************
+###           SNMP configuration              ###
+**************************************************#}
+{%- if snmp %}
+snmp {
+    name "{{ device.name }}";
+    location "{{ device.location | default("UNDEFINED LOCATION", true)}}";
+    {%- for list in snmp["client-list"] %}
+    client-list {{ list["name"] }} {
+        {%- for client in list["client-address-list"] %}
+        {%- if client["restrict"] %}
+        {{ client["name"] }} {
+            restrict;
+        }
+        {%- else %}
+        {{ client["name"] }};
+        {%- endif %}
+        {%- endfor %}
+    }
+    {%- endfor%}
+    {%- for comm in snmp["community"] %}
+    community {{ comm["name"] }} {
+        authorization {{ comm["authorization"] }};
+        client-list-name {{ comm["client-list-name"] }};
+        {%- for ri in comm["routing-instance"] %}
+        routing-instance {{ ri["name"]|upper }};
+        {%- endfor %}
+    }
+    {%- endfor %}
+    {%- for tg in snmp["trap-group"] %}
+    trap-group {{ tg["name"] }} {
+        destination-port {{ tg["destination-port"] }};
+        {%- for target in tg["targets"] %}
+        targets {
+            {{ target["name"] }};
+        }
+        {%- endfor %}
+    }
+    {%- endfor %}
+    {%- if snmp["routing-instance-access"] %}
+    routing-instance-access {
+        access-list {
+            {%- for ri in snmp["routing-instance-access"]["access-list"] %}
+            {{ ri["name"]|upper }};
+            {%- endfor %}
+        }
+    }
+    {%- endif %}
+}
+{%- endif %}
+{#- **************************************************
 ###           Chassis configuration              ###
 **************************************************#}
 chassis {
@@ -245,7 +295,7 @@ vlans {
         vlan-id 1;
     }
     {%- for vl in device.site.vlans.all() %}
-    VL_{{ vl.name }} {
+    VL_{{ vl.name|upper }} {
         vlan-id {{ vl.vid }};
         {%- for interface in device.interfaces.all() %}
         {%- if "irb" in interface.name %}
@@ -322,7 +372,7 @@ protocols {
 {%- if instances | length > 0 %}
 routing-instances {
     {%- for instance in instances %}
-    {{ instance }} {
+    {{ instance|upper }} {
         instance-type virtual-router;
         {%- if device.virtual_chassis != None %}
         {%- for node in device.virtual_chassis.members.all() %}

@@ -19,6 +19,52 @@
         }
         ]
     },
+    "snmp" : {
+        "client-list" : [
+        {
+            "name" : "list0",
+            "client-address-list" : [
+            {
+                "name" : "192.168.0.0/24"
+            },
+            {
+                "name" : "0.0.0.0/0",
+                "restrict" : [null]
+            }
+            ]
+        }
+        ],
+        "community" : [
+        {
+            "name" : "public",
+            "authorization" : "read-only",
+            "client-list-name" : "list0",
+            "routing-instance" : [
+            {
+                "name" : "MGMT"
+            }
+            ]
+        }
+        ],
+        "trap-group" : [
+        {
+            "name" : "qf-traps",
+            "destination-port" : 155,
+            "targets" : [
+            {
+                "name" : "192.168.0.100"
+            }
+            ]
+        }
+        ],
+        "routing-instance-access" : {
+            "access-list" : [
+            {
+                "name" : "MGMT"
+            }
+            ]
+        }
+    },
     "storm_control_profiles" : [
         {
             "name" : "LOCAL-SCP",

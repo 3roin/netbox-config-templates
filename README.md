@@ -37,15 +37,18 @@ Import required jinja templates, custom information from the .csv files, and exa
 - [+] System domain-name configuration
 - [+] NTP configuration
 - [+] Time-Zone configuration
+- [+] SNMP configuration
+- [-] AAA configuration (Radius for local and 802.1x)
+- [-] TACACS+ configuration
 - [-] MSTP configuration
 - [-] DHCP server/relay configuration
 - [-] CoPP (Control-Plane Protection using lo0 filters)
-- [-] AAA configuration (Radius for local and 802.1x)
-- [-] TACACS+ configuration
 - [-] 802.1x authentication
 - [-] Port Security
 - [-] DHCP Security
 - [-] ARP Security
+- [-] OSPF configuration
+- [-] BGP configuration
 
 ## NetBox version compatibility
 
@@ -54,6 +57,7 @@ All templates are tested and compatible with NetBox versions:
 |  Version  | Compatibility |
 |:---------:|:-------------:|
 | v3.5.3    | [ + ]         |
+| v3.5.4    | not tested    |
 
 -------------------------------
 
