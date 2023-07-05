@@ -57,7 +57,7 @@ All templates are tested and compatible with NetBox versions:
 |  Version  | Compatibility |
 |:---------:|:-------------:|
 | v3.5.3    | [ + ]         |
-| v3.5.4    | not tested    |
+| v3.5.4    | [ + ]         |
 
 -------------------------------
 
