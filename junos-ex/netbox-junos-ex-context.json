@@ -1,6 +1,61 @@
 {
     "domain_name" : "demo.local",
     "time_zone" : "GMT-4",
+    "radius_server" : [
+        {
+            "name" : "192.168.68.149",
+            "routing-instance" : "MGMT",
+            "secret" : "$9$K2Q8Nb4oGiHm4ajq.Pn6yleMxNbs2"
+        }
+        ],
+    "radius_options" : {
+            "password-protocol" : "mschap-v2"
+        },
+    "tacplus_server" : [
+        {
+            "name" : "192.168.10.222",
+            "routing-instance" : "MGMT",
+            "secret" : "$9$iHfz3nCu0Iz36A0OSyYgoGkPu0IhyKTzEc"
+        }
+        ],
+    "authentication_order" : [ "tacplus", "radius", "password"],
+    "accounting" : {
+        "events" : ["login", "change-log", "interactive-commands"],
+        "destination" : {
+            "radius" : {
+                "server" : [
+                {
+                    "name" : "10.5.5.5",
+                    "routing-instance" : "MGMT",
+                    "accounting-port" : 1813,
+                    "secret" : "$9$afJGDiH.f5z69lKW87NHq.",
+                    "timeout" : 3,
+                    "retry" : 3
+                },
+                {
+                    "name" : "10.6.6.6",
+                    "routing-instance" : "MGMT",
+                    "secret" : "$9$gr4aZUDH.m5FnSrKvLXDiH"
+                },
+                {
+                    "name" : "10.7.7.7",
+                    "routing-instance" : "MGMT",
+                    "secret" : "$9$B1V1RhSyeMWX-Vk.f5F3yle"
+                }
+                ]
+            },
+            "tacplus" : {
+                "server" : [
+                {
+                    "name" : "192.168.10.222",
+                    "routing-instance" : "MGMT",
+                    "secret" : "$9$f5nCtpBEhrCtu1hcMWZUjqT3EhrKWx/Cev",
+                    "single-connection" : [null]
+                }
+                ]
+            }
+        }
+    },
     "name_server" : [
         {
             "name" : "8.8.8.8"

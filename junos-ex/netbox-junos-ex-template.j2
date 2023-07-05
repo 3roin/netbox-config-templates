@@ -39,6 +39,68 @@ system {
             }
         }
     }
+    {%- if authentication_order %}
+    authentication-order [ {% for auth in authentication_order %}{{ auth }} {% endfor %}];
+    {%- endif %}
+    {%- if radius_server %}
+    radius-server {
+        {%- for rad in radius_server %}
+        {{ rad["name"] }} {
+            secret "{{ rad["secret"] }}";
+            routing-instance {{ rad["routing-instance"] }};
+            source-address {{ device.primary_ip.address.ip }};
+        }
+        {%- endfor %}
+    }
+    {%- endif %}
+    {%- if radius_options %}
+    radius-options {
+        password-protocol {{ radius_options["password-protocol"] }};
+    }
+    {%- endif %}
+    {%- if tacplus_server %}
+    tacplus-server {
+        {%- for tac in tacplus_server %}
+        {{ tac["name"] }} {
+            secret "{{ tac["secret"] }}";
+            routing-instance {{ tac["routing-instance"] }};
+            single-connection;
+            source-address {{ device.primary_ip.address.ip }};
+        }
+        {%- endfor %}
+    }
+    {%- endif %}
+    {%- if accounting %}
+    accounting {
+        {%- if accounting["events"] %}
+        events [ {% for event in accounting["events"] %}{{ event }} {% endfor %}];
+        {%- endif %}
+        destination {
+            {%- for proto, srv_list in accounting["destination"].items() %}
+            {{ proto }} {
+                {%- for name, props in srv_list.items() %}
+                {{ name }} {
+                    {%- for srv in props %}
+                    {{ srv["name"] }} {
+                        {%- for key, value in srv.items() %}
+                        {%- if key == "secret" %}
+                        {{ key }} "{{ value }}";
+                        {%- elif key == "single-connection" %}
+                        single-connection;
+                        {%- elif key != "name" %}
+                        {{ key }} {{ value }};
+                        {%- endif %}
+                        {%- endfor %}
+                        source-address {{ device.primary_ip.address.ip }};
+                    }
+                    {%- endfor %}
+                }
+                {%- endfor %}
+            }
+            {%- endfor %}
+        }
+    }
+    {%- endif %}
     syslog {
         user * {
             any emergency;
