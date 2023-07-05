@@ -38,8 +38,8 @@ Import required jinja templates, custom information from the .csv files, and exa
 - [+] NTP configuration
 - [+] Time-Zone configuration
 - [+] SNMP configuration
-- [-] AAA configuration (Radius for local and 802.1x)
-- [-] TACACS+ configuration
+- [+] Radius configuration
+- [+] TACACS+ configuration
 - [-] MSTP configuration
 - [-] DHCP server/relay configuration
 - [-] CoPP (Control-Plane Protection using lo0 filters)
