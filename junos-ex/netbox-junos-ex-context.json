@@ -20,6 +20,16 @@
         ]
     },
     "snmp" : {
+        "view" : [
+            {
+                "name" : "all",
+                "oid" : [
+                {
+                    "name" : ".1"
+                }
+                ]
+            }
+            ],
         "client-list" : [
         {
             "name" : "list0",
@@ -37,6 +47,7 @@
         "community" : [
         {
             "name" : "public",
+            "view" : "all",
             "authorization" : "read-only",
             "client-list-name" : "list0",
             "routing-instance" : [
@@ -48,8 +59,8 @@
         ],
         "trap-group" : [
         {
-            "name" : "qf-traps",
-            "destination-port" : 155,
+            "name" : "TG-1",
+            "destination-port" : 162,
             "targets" : [
             {
                 "name" : "192.168.0.100"

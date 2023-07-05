@@ -80,6 +80,15 @@ system {
 **************************************************#}
 {%- if snmp %}
 snmp {
+    {%- if snmp["view"] %}
+    {%- for snmp_view in snmp["view"] %}
+    view {{ snmp_view["name"] }} {
+        {%- for oid in snmp_view["oid"] %}
+        oid {{ oid["name"] }};
+        {%- endfor %}
+    }
+    {%- endfor %}
+    {%- endif %}
     name "{{ device.name }}";
     location "{{ device.location | default("UNDEFINED LOCATION", true)}}";
     {%- for list in snmp["client-list"] %}
@@ -97,6 +106,9 @@ snmp {
     {%- endfor%}
     {%- for comm in snmp["community"] %}
     community {{ comm["name"] }} {
+        {%- if comm["view"] %}
+        view {{ comm["view"] }};
+        {%- endif %}
         authorization {{ comm["authorization"] }};
         client-list-name {{ comm["client-list-name"] }};
         {%- for ri in comm["routing-instance"] %}
