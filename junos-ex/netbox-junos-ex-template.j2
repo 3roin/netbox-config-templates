@@ -445,7 +445,7 @@ protocols {
 {#- **************************************************
 ###                VRF configuration             ###
 **************************************************#}
-{%- set instances = device.interfaces.all() | selectattr("vrf.name", "defined") | map(attribute="vrf.name") | unique | list %}
+{%- macro vrf_cfg(instances) %}
 {%- if instances | length > 0 %}
 routing-instances {
     {%- for instance in instances %}
@@ -492,11 +492,26 @@ routing-instances {
             }
         {%- endif %}
         {%- endfor %}
-        {%- endif %}
         }
+        {%- endif %}
     {%- endfor %}
     }
 }
+{%- endif %}
+{%- endmacro %}
+{%- if not device.virtual_chassis %}
+{%- set instances = device.interfaces.all() | selectattr("vrf.name", "defined") | map(attribute="vrf.name") | unique | list %}
+{{ vrf_cfg(instances) }}
+{%- else %}
+{%- set instances = [] %}
+{%- for node in device.virtual_chassis.members.all() %}
+{%- for interface in node.interfaces.all() %}
+{%- if interface.vrf and interface.vrf.name not in instances %}
+{%- set instances = instances.append(interface.vrf.name) %}
+{%- endif %}
+{%- endfor %}
+{%- endfor %}
+{{ vrf_cfg(instances) }}
 {%- endif %}
 {#- **************************************************
 ###                Forwarding options              ###
