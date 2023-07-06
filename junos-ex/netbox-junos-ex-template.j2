@@ -260,6 +260,9 @@ virtual-chassis {
         {%- if '.' not in interface.name %}
         description "{{ interface.description | default("Missing description", true) }}";
         {%- endif %}
+        {%- if interface.mtu %}
+        mtu {{ interface.mtu }};
+        {%- endif %}
         {%- if lag_agg %}
         aggregated-ether-options {
             lacp {
