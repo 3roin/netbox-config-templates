@@ -1,4 +1,5 @@
 {
+    "version" : "23.1R1.8",
     "domain_name" : "demo.local",
     "time_zone" : "GMT-4",
     "radius_server" : [
