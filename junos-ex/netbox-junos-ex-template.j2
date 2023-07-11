@@ -449,27 +449,27 @@ protocols {
 {%- if instances | length > 0 %}
 routing-instances {
     {%- for instance in instances %}
-    {{ instance|upper }} {
-        instance-type virtual-router;
-        {%- if device.virtual_chassis != None %}
+    {{ instance.name|upper }} {
+        instance-type {{ instance.cf.vrf_instance_type }};
+        {%- if device.virtual_chassis %}
         {%- for node in device.virtual_chassis.members.all() %}
         {%- for interface in node.interfaces.all() %}
-        {%- if interface.vrf.name == instance %}
+        {%- if interface.vrf.name == instance.name %}
         interface {{ interface.name }};
         {%- endif %}
         {%- endfor %}
         {%- endfor %}
         {%- else %}
         {%- for interface in device.interfaces.all() %}
-        {%- if interface.vrf.name == instance %}
+        {%- if interface.vrf.name == instance.name %}
         interface {{ interface.name }};
         {%- endif %}
         {%- endfor %}
         {%- endif %}
-        {%- if device.cf.static_routes != None %}
+        {%- if device.cf.static_routes %}
         routing-options {
         {%- for vrf, routes in device.cf.static_routes.vrfs.items() %}
-        {%- if vrf == instance %}
+        {%- if vrf|upper == instance.name|upper %}
             static {
                 {%- for dest, next_hops in routes.dests.items() %}
                 route {{ dest }} {
@@ -500,14 +500,14 @@ routing-instances {
 {%- endif %}
 {%- endmacro %}
 {%- if not device.virtual_chassis %}
-{%- set instances = device.interfaces.all() | selectattr("vrf.name", "defined") | map(attribute="vrf.name") | unique | list %}
+{%- set instances = device.interfaces.all() | selectattr("vrf.name", "defined") | map(attribute="vrf") | unique | list %}
 {{ vrf_cfg(instances) }}
 {%- else %}
 {%- set instances = [] %}
 {%- for node in device.virtual_chassis.members.all() %}
 {%- for interface in node.interfaces.all() %}
-{%- if interface.vrf and interface.vrf.name not in instances %}
-{%- set instances = instances.append(interface.vrf.name) %}
+{%- if interface.vrf and interface.vrf not in instances %}
+{%- set instances = instances.append(interface.vrf) %}
 {%- endif %}
 {%- endfor %}
 {%- endfor %}

@@ -2,22 +2,22 @@
     "domain_name" : "demo.local",
     "time_zone" : "GMT-4",
     "radius_server" : [
-        {
-            "name" : "192.168.68.149",
-            "routing-instance" : "MGMT",
-            "secret" : "$9$K2Q8Nb4oGiHm4ajq.Pn6yleMxNbs2"
-        }
-        ],
+    {
+        "name" : "192.168.68.149",
+        "routing-instance" : "MGMT",
+        "secret" : "$9$K2Q8Nb4oGiHm4ajq.Pn6yleMxNbs2"
+    }
+    ],
     "radius_options" : {
             "password-protocol" : "mschap-v2"
         },
     "tacplus_server" : [
-        {
-            "name" : "192.168.10.222",
-            "routing-instance" : "MGMT",
-            "secret" : "$9$iHfz3nCu0Iz36A0OSyYgoGkPu0IhyKTzEc"
-        }
-        ],
+    {
+        "name" : "192.168.10.222",
+        "routing-instance" : "MGMT",
+        "secret" : "$9$iHfz3nCu0Iz36A0OSyYgoGkPu0IhyKTzEc"
+    }
+    ],
     "authentication_order" : [ "tacplus", "radius", "password"],
     "accounting" : {
         "events" : ["login", "change-log", "interactive-commands"],
@@ -57,13 +57,13 @@
         }
     },
     "name_server" : [
-        {
-            "name" : "8.8.8.8"
-        },
-        {
-            "name" : "8.8.4.4"
-        }
-        ],
+    {
+        "name" : "8.8.8.8"
+    },
+    {
+        "name" : "8.8.4.4"
+    }
+    ],
     "ntp" : {
         "server" : [
         {
@@ -132,14 +132,47 @@
         }
     },
     "storm_control_profiles" : [
+    {
+        "name" : "LOCAL-SCP",
+        "all" : {
+            "bandwidth-percentage" : 15,
+            "burst-size" : 1500,
+            "no-multicast": [null]
+        },
+        "action-shutdown" : [null]
+    }
+    ],
+    "dhcp-relay" : {
+        "server-group" : {
+            "server-group" : [
+            {
+                "name" : "DHCP-SRV-GR1",
+                "address" : [
+                {
+                    "name" : "1.2.3.4"
+                },
+                {
+                    "name" : "1.2.3.5"
+                }
+                ]
+            }
+            ]
+        },
+        "group" : [
         {
-            "name" : "LOCAL-SCP",
-            "all" : {
-                "bandwidth-percentage" : 15,
-                "burst-size" : 1500,
-                "no-multicast": [null]
+            "name" : "DHCP-GR1",
+            "active-server-group" : {
+                "active-server-group" : "DHCP-SRV-GR1"
             },
-            "action-shutdown" : [null]
+            "overrides" : {
+                "trust-option-82" : [null]
+            },
+            "interface" : [
+            {
+                "name" : "irb.10"
+            }
+            ]
         }
         ]
+    }
 }
