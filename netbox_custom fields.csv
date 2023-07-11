@@ -7,3 +7,4 @@ root_password,dcim.device,Root password,,Text,False,,$6$ZwmTCtsz$Mr50GDZGgrK4091
 secondary_root_bridge,ipam.vlangroup,Secondary Root Bridge,,Object,False,,,1000,Loose,Read/Write,100,[],11,False,2023-06-24 12:04,2023-06-24 12:04
 static_routes,dcim.device,Static Routes,,JSON,False,,,1000,Loose,Read/Write,100,[],5,False,2023-06-18 10:42,2023-06-18 10:46
 vc_role,dcim.device,Virtual Chassis Role,,Selection,False,,,1000,Loose,Read/Write,100,"['RE', 'LC']",7,False,2023-06-19 13:38,2023-06-19 13:38
+vrf_instance_type,ipam.vrf,VRF Instance Type,,Selection,True,Used to define VRF instance type,,1000,Loose,Read/Write,100,"['evpn', 'evpn-vpws', 'forwarding', 'l2backhaul-vpn', 'l2vpn', 'layer2-control', 'mac-vrf', 'mpls-forwarding', 'mpls-internet-multicast', 'no-forwarding', 'virtual-router', 'virtual-switch', 'vpls', 'vrf']",12,False,2023-07-11 08:50,2023-07-11 09:21
