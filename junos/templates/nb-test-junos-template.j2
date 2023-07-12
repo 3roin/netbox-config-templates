@@ -1,6 +1,7 @@
 {#- **************************************************
 ###           System configuration               ###
 **************************************************#}
+version {{ junos_version }}
 {%- if device.virtual_chassis %}
 groups {
     member0 {
@@ -26,7 +27,7 @@ system {
         encrypted-password "{{ device.cf.root_password }}";
     }
     login {
-        idle-timeout {{ login_idle_timeout }};
+        idle-timeout {{ login_idle_timeout | default("60", true) }};
     }
     services {
         ssh {
