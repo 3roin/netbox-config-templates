@@ -17,10 +17,13 @@
             "name" : "operator",
             "class" : "operator",
             "authentication" : {
-                "encrypted-password" : "$6$8/hG3PwR$mRykr.dN4ajsU/Sba1jRerl/.GJOW7rbClEixivIxm3hyGPRaFryP6gRXubJROUms5pXHEt5uUgaBuSArwIUg0"
+                "encrypted-password" : [
+                {
+                    "name": "$6$8/hG3PwR$mRykr.dN4ajsU/Sba1jRerl/.GJOW7rbClEixivIxm3hyGPRaFryP6gRXubJROUms5pXHEt5uUgaBuSArwIUg0"
+                }
+                ]
             }
         }
-
         ]
     }
 }
