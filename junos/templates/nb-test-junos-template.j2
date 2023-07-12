@@ -1,7 +1,7 @@
 {#- **************************************************
 ###           System configuration               ###
 **************************************************#}
-version {{ junos_version }}
+version {{ junos_version }};
 {%- if device.virtual_chassis %}
 groups {
     member0 {
@@ -24,10 +24,24 @@ system {
     host-name {{ device.name }};
     {%- endif %}
     root-authentication {
-        encrypted-password "{{ device.cf.root_password }}";
+        encrypted-password "{{ root_passwd }}";
     }
     login {
         idle-timeout {{ login_idle_timeout | default("60", true) }};
+        {%- if login["user"] %}
+        {%- for usr in login["user"] %}
+        user {{ usr["name"] }} {
+            class {{ usr["class"] }};
+            authentication {
+                {%- for method, opt in usr["authentication"].items() %}
+                {%- for opt_val in opt %}
+                {{ method }} "{{ opt_val["name"] }}";
+                {%- endfor %}
+                {%- endfor %}
+            }
+        }
+        {%- endfor %}
+        {%- endif %}
     }
     services {
         ssh {
@@ -36,7 +50,7 @@ system {
         }
         netconf {
             ssh {
-                port {{ device.cf.netconf_port | string }};
+                port {{netconf_port | default("830", true) }};
             }
         }
     }
@@ -153,7 +167,7 @@ snmp {
     {%- endfor %}
     {%- endif %}
     name "{{ device.name }}";
-    location "{{ device.location | default("UNDEFINED LOCATION", true)}}";
+    location "{{ device.location | default("UNDEFINED LOCATION", true) }}";
     {%- for list in snmp["client-list"] %}
     client-list {{ list["name"] }} {
         {%- for client in list["client-address-list"] %}
@@ -211,7 +225,7 @@ chassis {
     {%- endif %}
     aggregated-devices {
         ethernet {
-            device-count {{ device.cf.agg_dev_count | string }};
+            device-count {{ agg_dev_count | default("16", true) }};
         }
     }
     alarm {
@@ -396,8 +410,8 @@ routing-options {
     {%- if device.virtual_chassis %}
     nonstop-routing;
     {%- endif %}
-    {%- if device.cf.static_routes != None %}
-    {%- for vrf, routes in device.cf.static_routes.vrfs.items() %}
+    {%- if static_routes %}
+    {%- for vrf, routes in static_routes.vrfs.items() %}
     {%- if vrf == "default" %}
     static {
         {%- for dest, next_hops in routes.dests.items() %}
@@ -455,21 +469,21 @@ routing-instances {
         {%- if device.virtual_chassis %}
         {%- for node in device.virtual_chassis.members.all() %}
         {%- for interface in node.interfaces.all() %}
-        {%- if interface.vrf.name == instance.name %}
+        {%- if interface.vrf.name|upper == instance.name|upper %}
         interface {{ interface.name }};
         {%- endif %}
         {%- endfor %}
         {%- endfor %}
         {%- else %}
         {%- for interface in device.interfaces.all() %}
-        {%- if interface.vrf.name == instance.name %}
+        {%- if interface.vrf.name|upper == instance.name|upper %}
         interface {{ interface.name }};
         {%- endif %}
         {%- endfor %}
         {%- endif %}
-        {%- if device.cf.static_routes %}
+        {%- if static_routes %}
         routing-options {
-        {%- for vrf, routes in device.cf.static_routes.vrfs.items() %}
+        {%- for vrf, routes in static_routes.vrfs.items() %}
         {%- if vrf|upper == instance.name|upper %}
             static {
                 {%- for dest, next_hops in routes.dests.items() %}
