@@ -4,6 +4,7 @@
         "user" : [
         {
             "name" : "ansible",
+            "uid": "2000",
             "class" : "super-user",
             "authentication" : {
                 "ssh-rsa" : [
@@ -15,6 +16,7 @@
         },
         {
             "name" : "oper-1",
+            "uid": "2001",
             "class" : "operator",
             "authentication" : {
                 "encrypted-password" : [

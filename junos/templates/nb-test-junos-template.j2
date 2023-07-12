@@ -32,6 +32,7 @@ system {
         {%- for usr in login["user"] %}
         user {{ usr["name"] }} {
             class {{ usr["class"] }};
+            uid {{ usr["uid"] }};
             authentication {
                 {%- for method, opt in usr["authentication"].items() %}
                 {%- for opt_val in opt %}
