@@ -14,7 +14,7 @@
             }
         },
         {
-            "name" : "operator",
+            "name" : "oper-1",
             "class" : "operator",
             "authentication" : {
                 "encrypted-password" : [
