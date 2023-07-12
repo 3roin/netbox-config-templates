@@ -26,7 +26,7 @@ system {
         encrypted-password "{{ device.cf.root_password }}";
     }
     login {
-        idle-timeout {{ device.cf.idle_timeout | string }};
+        idle-timeout {{ login_idle_timeout }};
     }
     services {
         ssh {

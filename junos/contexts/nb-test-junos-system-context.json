@@ -1,0 +1,26 @@
+{
+    "version" : "23.1R1.8",
+    "domain_name" : "demo.local",
+    "time_zone" : "GMT-4",
+    "login_idle_timeout": "60",
+    "netconf_port": "830",
+    "agg_dev_count": "16",
+    "name_server" : [
+    {
+        "name" : "8.8.8.8"
+    },
+    {
+        "name" : "8.8.4.4"
+    }
+    ],
+    "ntp" : {
+        "server" : [
+        {
+            "name" : "202.28.116.236"
+        },
+        {
+            "name" : "202.12.97.45"
+        }
+        ]
+    }
+}

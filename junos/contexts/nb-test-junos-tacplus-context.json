@@ -1,0 +1,25 @@
+{
+    "tacplus_server" : [
+    {
+        "name" : "192.168.10.222",
+        "routing-instance" : "MGMT",
+        "secret" : "$9$iHfz3nCu0Iz36A0OSyYgoGkPu0IhyKTzEc"
+    }
+    ],
+    "authentication_order" : [ "tacplus", "radius", "password"],
+    "accounting" : {
+        "events" : ["login", "change-log", "interactive-commands"],
+        "destination" : {
+            "tacplus" : {
+                "server" : [
+                {
+                    "name" : "192.168.10.222",
+                    "routing-instance" : "MGMT",
+                    "secret" : "$9$f5nCtpBEhrCtu1hcMWZUjqT3EhrKWx/Cev",
+                    "single-connection" : [null]
+                }
+                ]
+            }
+        }
+    }
+}

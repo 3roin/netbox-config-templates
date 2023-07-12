@@ -1,0 +1,35 @@
+{
+    "dhcp-relay" : {
+        "server-group" : {
+            "server-group" : [
+            {
+                "name" : "DHCP-SRV-GR1",
+                "address" : [
+                {
+                    "name" : "1.2.3.4"
+                },
+                {
+                    "name" : "1.2.3.5"
+                }
+                ]
+            }
+            ]
+        },
+        "group" : [
+        {
+            "name" : "DHCP-GR1",
+            "active-server-group" : {
+                "active-server-group" : "DHCP-SRV-GR1"
+            },
+            "overrides" : {
+                "trust-option-82" : [null]
+            },
+            "interface" : [
+            {
+                "name" : "irb.10"
+            }
+            ]
+        }
+        ]
+    }
+}

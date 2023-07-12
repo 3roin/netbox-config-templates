@@ -1,0 +1,18 @@
+{
+    "root_passwd": "$6$ZwmTCtsz$Mr50GDZGgrK4091jhvY.Fc6WWMERo66X48zkr4Zgn1OG1kjzkgdD2SIGM0c8iv7rLBCDDAraPCSWbIDaMiDj21",
+    "login" : {
+        "user" : [
+        {
+            "name" : "ansible",
+            "class" : "super-user",
+            "authentication" : {
+                "ssh-rsa" : [
+                {
+                    "name" : "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDAic/fXAEPArTgHOg6oNrybQQ4faeAqJWEZ2tlkrS2Pkg5mWLv78hfY8e3aqlx6+eaHTgVnQreqEFSXFNDLX8u2q26x8QM78yz2mlzleKrFrEUrPvraARvAzSqXmqC6EbA3oj/a2PNv11BnbctyD2Xy8J4TtvhzjX56aFUSyFN93DWLAMD3tpmuDg3qJer1Mg+EinTpDPCKskkDR3eTWHxWAUgWgFZRr56igFB3ywcS1ky9RjcB0fB6XkoqAlyYJ4OPu76jgW4tzHMC8WRNmBJL84PF5GAL3CFymIoy/LU0fKKyt73FYJByPFsF2eywCYm+suiaBzBeq425U+SUx4LHwUQJvfvqeuUIALdT8SB5gljE4AfrD6nZ7nI6i6OOpGqNMMe1CGZVeHY4kKwSytW6GR1GPiIHTASHHceBPRqJNuL6ZQsftCFPtsSV1RJPItn8w5DFAU0XtQcfD5/wvwOJghngXIU0IbaydvKAvM1ws/EidP5j11cfWqicJIQZQzpDMZ0qS95Ko+ce10XX5InPoStp5Rvp8Tago6yi0szEzlOBpfuPHaj21iSOVSHzu+j8r+IAaMdu8fhqdopMkMCI7VCPe2AvnDEbwhIo+Q9LFtWeg8t59SjKek7FWT1ykFWDhF5Io8fI9v6bv5dfJ26Ri1yilXFz8qPWinlTiLREQ== elchin@SurfacePro"
+                }
+                ]
+            }
+        }
+        ]
+    }
+}
