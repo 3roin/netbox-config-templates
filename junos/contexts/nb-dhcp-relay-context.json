@@ -22,7 +22,14 @@
                 "active-server-group" : "DHCP-SRV-GR1"
             },
             "overrides" : {
-                "trust-option-82" : [null]
+                "always-write-option-82" : [null],
+                "trust-option-82" : [null],
+                "interface-client-limit" : 200
+            },
+            "relay-option-82" : {
+                "remote-id" : {
+                    "use-vlan-id" : [null]
+                }
             },
             "interface" : [
             {
