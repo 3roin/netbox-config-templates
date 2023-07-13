@@ -1,5 +1,5 @@
 {
-    "dhcp-relay" : {
+    "dhcp_relay" : {
         "server-group" : {
             "server-group" : [
             {
