@@ -594,9 +594,28 @@ forwarding-options {
             }
             {%- endif %}
             {%- endfor %}
+            {%- if device.virtual_chassis %}
+            {%- for node in device.virtual_chassis.members.all() %}
+            {%- for interface in node.interfaces.all() %}
+            {%- for tag in interface.tags.all() %}
+            {%- if gr["name"]|upper == tag["name"]|upper %}
+            interface {{ interface.name }};
+            {%- endif %}
+            {%- endfor %}
+            {%- endfor %}
+            {%- endfor %}
+            {%- else %}
+            {%- for interface in device.interfaces.all() %}
+            {%- for tag in interface.tags.all() %}
+            {%- if gr["name"]|upper == tag["name"]|upper %}
+            interface {{ interface.name }};
+            {%- endif %}
+            {%- endfor %}
+            {%- endfor %}
+            {%- endif %}
+            {%- endfor %}
+            {%- endif %}
         }
-        {%- endfor %}
-        {%- endif %}
     }
     {%- endif %}    
 }
