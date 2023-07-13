@@ -532,6 +532,7 @@ routing-instances {
 {#- **************************************************
 ###                Forwarding options              ###
 **************************************************#}
+{%- if storm_control_profiles or dhcp_relay %}
 forwarding-options {
     {%- if storm_control_profiles %}
     {%- for scp in storm_control_profiles %}
@@ -551,4 +552,52 @@ forwarding-options {
     }
     {%- endfor %}
     {%- endif %}
+    {%- if dhcp_relay %}
+    dhcp-relay {
+        {%- if dhcp_relay["server-group"]%}
+        {%- set sg = dhcp_relay["server-group"]["server-group"] %}
+        server-group {
+            {%- for relay_sg in sg %}
+            {{ relay_sg["name"] }} {
+                {%- for relay_srv in relay_sg["address"] %}
+                {{ relay_srv["name"] }};
+                {%- endfor %}
+            }
+            {%- endfor %}
+        }
+        {%- endif %}
+        {%- if dhcp_relay["group"] %}
+        {%- for gr in dhcp_relay["group"] %}
+        group {{ gr["name"] }} {
+            {%- for key, value in gr.items() %}
+            {%- if key == "active-server-group" %}
+            active-server-group {{ value["active-server-group"] }};
+            {%- elif value is mapping %}
+            {{ key }} {
+                {%- for key1, value1 in value.items() %}
+                {%- if value1 is string or value1 is number %}
+                {{ key1 }} {{ value1 }};
+                {%- elif value1 is mapping %}
+                {{ key1 }} {
+                    {%- for key2, value2 in value1.items() %}
+                    {%- if value2 is string or value2 is number %}
+                    {{ key2 }} {{ value2 }};
+                    {%- else %}
+                    {{ key2 }};
+                    {%- endif %}
+                    {%- endfor %}
+                }
+                {%- else %}
+                {{ key1 }};
+                {%- endif %}
+                {%- endfor %}
+            }
+            {%- endif %}
+            {%- endfor %}
+        }
+        {%- endfor %}
+        {%- endif %}
+    }
+    {%- endif %}    
 }
+{%- endif %}

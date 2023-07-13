@@ -30,12 +30,7 @@
                 "remote-id" : {
                     "use-vlan-id" : [null]
                 }
-            },
-            "interface" : [
-            {
-                "name" : "irb.10"
             }
-            ]
         }
         ]
     }
