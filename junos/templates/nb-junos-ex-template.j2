@@ -451,6 +451,7 @@ policy-options {
 {#- **************************************************
 ###          Protocols configuration       ###
 **************************************************#}
+{%- if device.virtual_chassis %}
 protocols {
     {%- if device.virtual_chassis %}
     layer2-control {
