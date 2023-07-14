@@ -4,6 +4,7 @@
             "server-group" : [
             {
                 "name" : "DHCP-SRV-GR1",
+                "instance" : "default",
                 "address" : [
                 {
                     "name" : "1.2.3.4"
@@ -12,14 +13,44 @@
                     "name" : "1.2.3.5"
                 }
                 ]
+            },
+            {
+                "name" : "DHCP-SRV-GR2",
+                "instance" : "corp",
+                "address" : [
+                {
+                    "name" : "10.10.10.10"
+                },
+                {
+                    "name" : "10.10.10.11"
+                }
+                ]
             }
             ]
         },
         "group" : [
         {
             "name" : "DHCP-GR1",
+            "instance" : "default",
             "active-server-group" : {
                 "active-server-group" : "DHCP-SRV-GR1"
+            },
+            "overrides" : {
+                "always-write-option-82" : [null],
+                "trust-option-82" : [null],
+                "interface-client-limit" : 200
+            },
+            "relay-option-82" : {
+                "remote-id" : {
+                    "use-vlan-id" : [null]
+                }
+            }
+        },
+        {
+            "name" : "DHCP-GR2",
+            "instance" : "corp",
+            "active-server-group" : {
+                "active-server-group" : "DHCP-SRV-GR2"
             },
             "overrides" : {
                 "always-write-option-82" : [null],
