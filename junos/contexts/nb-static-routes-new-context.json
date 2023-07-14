@@ -1,0 +1,17 @@
+{
+    "static_routes" : {
+        "route" : [
+        {
+            "name" : "0.0.0.0/0",
+            "next-hop" : ["172.16.1.254"],
+            "qualified-next-hop" : [
+            {
+                "name" : "172.16.0.254",
+                "preference" : 999,
+                "metric" : 10
+            }
+            ]
+        }
+        ]
+    }
+}

@@ -512,6 +512,74 @@ routing-instances {
         {%- endfor %}
         }
         {%- endif %}
+        {%- if dhcp_relay[instance.name] %}
+        forwarding-options {
+            dhcp-relay {
+                {%- if dhcp_relay[instance.name]["server-group"]%}
+                {%- set sg = dhcp_relay[instance.name]["server-group"]["server-group"] %}
+                server-group {
+                    {%- for relay_sg in sg %}
+                    {{ relay_sg["name"] }} {
+                        {%- for relay_srv in relay_sg["address"] %}
+                        {{ relay_srv["name"] }};
+                        {%- endfor %}
+                    }
+                    {%- endfor %}
+                }
+                {%- endif %}
+                {%- if dhcp_relay[instance.name]["group"] %}
+                {%- for gr in dhcp_relay[instance.name]["group"] %}
+                group {{ gr["name"] }} {
+                    {%- for key, value in gr.items() %}
+                    {%- if key == "active-server-group" %}
+                    active-server-group {{ value["active-server-group"] }};
+                    {%- elif value is mapping %}
+                    {{ key }} {
+                        {%- for key1, value1 in value.items() %}
+                        {%- if value1 is string or value1 is number %}
+                        {{ key1 }} {{ value1 }};
+                        {%- elif value1 is mapping %}
+                        {{ key1 }} {
+                            {%- for key2, value2 in value1.items() %}
+                            {%- if value2 is string or value2 is number %}
+                            {{ key2 }} {{ value2 }};
+                            {%- else %}
+                            {{ key2 }};
+                            {%- endif %}
+                            {%- endfor %}
+                        }
+                        {%- else %}
+                        {{ key1 }};
+                        {%- endif %}
+                        {%- endfor %}
+                    }
+                    {%- endif %}
+                    {%- endfor %}
+                    {%- if device.virtual_chassis %}
+                    {%- for node in device.virtual_chassis.members.all() %}
+                    {%- for interface in node.interfaces.all() %}
+                    {%- for tag in interface.tags.all() %}
+                    {%- if gr["name"]|upper == tag["name"]|upper %}
+                    interface {{ interface.name }};
+                    {%- endif %}
+                    {%- endfor %}
+                    {%- endfor %}
+                    {%- endfor %}
+                    {%- else %}
+                    {%- for interface in device.interfaces.all() %}
+                    {%- for tag in interface.tags.all() %}
+                    {%- if gr["name"]|upper == tag["name"]|upper %}
+                    interface {{ interface.name }};
+                    {%- endif %}
+                    {%- endfor %}
+                    {%- endfor %}
+                    {%- endif %}
+                }
+                {%- endfor %}
+                {%- endif %}
+            }
+        }
+        {%- endif %}
     }
     {%- endfor %}
 }
