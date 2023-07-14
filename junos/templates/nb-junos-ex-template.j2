@@ -554,10 +554,10 @@ forwarding-options {
     }
     {%- endfor %}
     {%- endif %}
-    {%- if dhcp_relay %}
+    {%- if dhcp_relay["default"] %}
     dhcp-relay {
-        {%- if dhcp_relay["server-group"]%}
-        {%- set sg = dhcp_relay["server-group"]["server-group"] %}
+        {%- if dhcp_relay["default"]["server-group"]%}
+        {%- set sg = dhcp_relay["default"]["server-group"]["server-group"] %}
         server-group {
             {%- for relay_sg in sg %}
             {{ relay_sg["name"] }} {
@@ -568,8 +568,8 @@ forwarding-options {
             {%- endfor %}
         }
         {%- endif %}
-        {%- if dhcp_relay["group"] %}
-        {%- for gr in dhcp_relay["group"] %}
+        {%- if dhcp_relay["default"]["group"] %}
+        {%- for gr in dhcp_relay["default"]["group"] %}
         group {{ gr["name"] }} {
             {%- for key, value in gr.items() %}
             {%- if key == "active-server-group" %}
@@ -615,9 +615,9 @@ forwarding-options {
             {%- endfor %}
             {%- endfor %}
             {%- endif %}
-            {%- endfor %}
-            {%- endif %}
         }
+        {%- endfor %}
+        {%- endif %}
     }
     {%- endif %}
 }
