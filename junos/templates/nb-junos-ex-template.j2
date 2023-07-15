@@ -509,7 +509,7 @@ routing-instances {
         {%- endfor %}
         }
         {%- endif %}
-        {%- if dhcp_relay[instance.name] %}
+        {%- if dhcp_relay is defined and dhcp_relay[instance.name] %}
         forwarding-options {
             dhcp-relay {
                 {%- if dhcp_relay[instance.name]["server-group"]%}
@@ -596,9 +596,9 @@ forwarding-options {
     }
     {%- endfor %}
     {%- endif %}
-    {%- if dhcp_relay["default"] %}
+    {%- if dhcp_relay is defined and dhcp_relay["default"] %}
     dhcp-relay {
-        {%- if dhcp_relay["default"]["server-group"]%}
+        {%- if dhcp_relay["default"]["server-group"] %}
         {%- set sg = dhcp_relay["default"]["server-group"]["server-group"] %}
         server-group {
             {%- for relay_sg in sg %}
