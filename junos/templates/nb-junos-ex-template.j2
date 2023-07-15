@@ -291,7 +291,6 @@ virtual-chassis {
         {%- if '.' in interface.name %}
         unit {{ unit_id or 0 }} {
             description "{{ interface.description | default("Missing description", true) }}";
-        }
         {%- else %}
         unit 0 {
         {%- endif %}
