@@ -290,7 +290,8 @@ virtual-chassis {
         {%- if count_ipaddr > 0 %}
         {%- if '.' in interface.name %}
         unit {{ unit_id or 0 }} {
-            description "{{ interface.description | default("Missing description", true) }}"
+            description "{{ interface.description | default("Missing description", true) }}";
+        }
         {%- else %}
         unit 0 {
         {%- endif %}
@@ -371,14 +372,21 @@ virtual-chassis {
     }
     {%- endfor %}
 {%- endmacro %}
-interfaces {
-{%- if device.virtual_chassis != None %}
+{#- Defining all interfaces for VC or standalone device #}
+{%- set interfaces = [] %}
+{%- if device.virtual_chassis %}
 {%- for node in device.virtual_chassis.members.all() %}
-{{ ifs_config(node.interfaces.all()) }}
+{%- for interface in node.interfaces.all() %}
+{%- set interfaces = interfaces.append(interface) %}
+{%- endfor %}
 {%- endfor %}
 {%- else %}
-{{ ifs_config(device.interfaces.all()) }}
+{%- for interface in device.interfaces.all() %}
+{%- set interfaces = interfaces.append(interface) %}
+{%- endfor %}
 {%- endif %}
+interfaces {
+{{- ifs_config(interfaces) }}
 }
 {#- **************************************************
 ###              VLANs configuration             ###
@@ -390,7 +398,7 @@ vlans {
     {%- for vl in device.site.vlans.all() %}
     VL_{{ vl.name|upper }} {
         vlan-id {{ vl.vid }};
-        {%- for interface in device.interfaces.all() %}
+        {%- for interface in interfaces %}
         {%- if "irb" in interface.name %}
         {%- set unit_id = interface.name.split('.')|last|int if '.' in interface.name else None %}
         {%- if unit_id == vl.vid %}
@@ -469,21 +477,11 @@ routing-instances {
     {%- for instance in instances %}
     {{ instance.name|upper }} {
         instance-type {{ instance.cf.vrf_instance_type }};
-        {%- if device.virtual_chassis %}
-        {%- for node in device.virtual_chassis.members.all() %}
-        {%- for interface in node.interfaces.all() %}
+        {%- for interface in interfaces %}
         {%- if interface.vrf.name|upper == instance.name|upper %}
         interface {{ interface.name }};
         {%- endif %}
         {%- endfor %}
-        {%- endfor %}
-        {%- else %}
-        {%- for interface in device.interfaces.all() %}
-        {%- if interface.vrf.name|upper == instance.name|upper %}
-        interface {{ interface.name }};
-        {%- endif %}
-        {%- endfor %}
-        {%- endif %}
         {%- if static_routes %}
         routing-options {
         {%- for vrf, routes in static_routes.vrfs.items() %}
@@ -555,25 +553,13 @@ routing-instances {
                     }
                     {%- endif %}
                     {%- endfor %}
-                    {%- if device.virtual_chassis %}
-                    {%- for node in device.virtual_chassis.members.all() %}
-                    {%- for interface in node.interfaces.all() %}
+                    {%- for interface in interfaces %}
                     {%- for tag in interface.tags.all() %}
                     {%- if gr["name"]|upper == tag["name"]|upper %}
                     interface {{ interface.name }};
                     {%- endif %}
                     {%- endfor %}
                     {%- endfor %}
-                    {%- endfor %}
-                    {%- else %}
-                    {%- for interface in device.interfaces.all() %}
-                    {%- for tag in interface.tags.all() %}
-                    {%- if gr["name"]|upper == tag["name"]|upper %}
-                    interface {{ interface.name }};
-                    {%- endif %}
-                    {%- endfor %}
-                    {%- endfor %}
-                    {%- endif %}
                 }
                 {%- endfor %}
                 {%- endif %}
@@ -585,20 +571,9 @@ routing-instances {
 }
 {%- endif %}
 {%- endmacro %}
-{%- if not device.virtual_chassis %}
-{%- set instances = device.interfaces.all() | selectattr("vrf.name", "defined") | map(attribute="vrf") | unique | list %}
-{{ vrf_cfg(instances) }}
-{%- else %}
-{%- set instances = [] %}
-{%- for node in device.virtual_chassis.members.all() %}
-{%- for interface in node.interfaces.all() %}
-{%- if interface.vrf and interface.vrf not in instances %}
-{%- set instances = instances.append(interface.vrf) %}
-{%- endif %}
-{%- endfor %}
-{%- endfor %}
-{{ vrf_cfg(instances) }}
-{%- endif %}
+{#- Defining all VRF instances for VC or standalone device #}
+{%- set instances = interfaces | selectattr("vrf.name", "defined") | map(attribute="vrf") | unique | list %}
+{{- vrf_cfg(instances) }}
 {#- **************************************************
 ###                Forwarding options              ###
 **************************************************#}
@@ -664,25 +639,13 @@ forwarding-options {
             }
             {%- endif %}
             {%- endfor %}
-            {%- if device.virtual_chassis %}
-            {%- for node in device.virtual_chassis.members.all() %}
-            {%- for interface in node.interfaces.all() %}
+            {%- for interface in interfaces %}
             {%- for tag in interface.tags.all() %}
             {%- if gr["name"]|upper == tag["name"]|upper %}
             interface {{ interface.name }};
             {%- endif %}
             {%- endfor %}
             {%- endfor %}
-            {%- endfor %}
-            {%- else %}
-            {%- for interface in device.interfaces.all() %}
-            {%- for tag in interface.tags.all() %}
-            {%- if gr["name"]|upper == tag["name"]|upper %}
-            interface {{ interface.name }};
-            {%- endif %}
-            {%- endfor %}
-            {%- endfor %}
-            {%- endif %}
         }
         {%- endfor %}
         {%- endif %}
