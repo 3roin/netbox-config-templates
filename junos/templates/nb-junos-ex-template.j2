@@ -1,6 +1,272 @@
-{#- **************************************************
-###           System configuration               ###
-**************************************************#}
+{#- ***********************************************
+###            Pre-defined variables            ###
+************************************************ #}
+{#-  Defining interfaces for VC or single device #}
+{%- set interfaces = [] %}
+{%- if device.virtual_chassis %}
+{%- for node in device.virtual_chassis.members.all() %}
+{%- for interface in node.interfaces.all() %}
+{%- set interfaces = interfaces.append(interface) %}
+{%- endfor %}
+{%- endfor %}
+{%- else %}
+{%- for interface in device.interfaces.all() %}
+{%- set interfaces = interfaces.append(interface) %}
+{%- endfor %}
+{%- endif %}
+{#-     Defining VRFs for VC or single device    #}
+{%- set instances = interfaces | selectattr("vrf.name", "defined") | map(attribute="vrf") | unique | list %}
+{#- ***********************************************
+###             Template MACROs                 ###
+************************************************ #}
+{#-       Interfaces configuration macro         #}
+{%- macro ifs_config(interfaces) %}
+{%- for interface in interfaces %}
+{%- set fhrp_enabled = true if interface.fhrp_group_assignments.all()|length > 0 %}
+{%- set ifname = interface.name.split('.')|first %}
+{%- set unit_id = interface.name.split('.')|last if '.' in interface.name else None %}
+{%- set count_ipaddr = interface.ip_addresses.all()|length %}
+{%- set lag_member = interface.lag != None %}
+{%- set lag_agg = interface.type == "lag" %}
+{%- set has_tagged_vlans = interface.tagged_vlans != None and 'tagged' in interface.mode %}
+{%- set is_access_mode = interface.mode == 'access' %}
+    {{ ifname }} {
+        {%- if not interface.enabled %}
+        disable;
+        {%- endif %}
+        {%- if '.' not in interface.name %}
+        description "{{ interface.description | default("Missing description", true) }}";
+        {%- endif %}
+        {%- if interface.mtu %}
+        mtu {{ interface.mtu }};
+        {%- endif %}
+        {%- if lag_agg %}
+        aggregated-ether-options {
+            lacp {
+                active;
+            }
+            minimum-links 1;
+        }
+        {%- endif %}
+        {%- if count_ipaddr > 0 %}
+        {%- if '.' in interface.name %}
+        unit {{ unit_id or 0 }} {
+            description "{{ interface.description | default("Missing description", true) }}";
+        {%- else %}
+        unit 0 {
+        {%- endif %}
+            family inet {
+                {%- for ipaddr in interface.ip_addresses.all() %}
+                {%- if fhrp_enabled and ipaddr.role == "vrrp" %}
+                address {{ ipaddr }} {
+                    {%- for gr in interface.fhrp_group_assignments.all() %}
+                    vrrp-group {{ gr.group.group_id }} {
+                        {%- for vip in gr.group.ip_addresses.all() %}
+                        virtual-address {{ (vip|string).split('/')|first }};
+                        {%- endfor %}
+                        priority {{ gr.priority }};
+                        accept-data;
+                        preempt {
+                            hold-time 180;
+                        }
+                    }
+                    {%- endfor %}
+                }
+                {%- else %}
+                address {{ ipaddr }};
+                {%- endif %}
+                {%- endfor %}
+            }
+        }
+        {%- elif lag_member %}
+        gigether-options {
+            802.3ad {
+                {{ interface.lag.name }};
+            }
+        }
+        {%- elif has_tagged_vlans %}
+        {%- if interface.untagged_vlan != None %}
+        native-vlan-id {{ interface.untagged_vlan.vid }};
+        {%- endif %}
+        unit 0 {
+            family ethernet-switching {
+                {%- for tag in interface.tags.all() %}
+                {%- for scp in storm_control_profiles %}
+                {%- if tag["name"] == scp["name"] %}
+                storm-control {{ scp["name"] }};
+                {%- endif %}
+                {%- endfor %}
+                {%- endfor %}
+                {%- if interface.mode == 'tagged' %}
+                interface-mode trunk;
+                vlan {
+                    members [ {% for vlan in interface.tagged_vlans.all() %}{{ vlan.vid }} {% endfor %}];
+                }
+                {%- elif 'tagged-all' in interface.mode %}
+                interface-mode trunk;
+                vlan {
+                    members all;
+                }
+            {%- endif %}
+            }
+        }
+        {%- elif is_access_mode %}
+        unit 0 {
+            family ethernet-switching {
+                {%- for tag in interface.tags.all() %}
+                {%- for scp in storm_control_profiles %}
+                {%- if tag["name"] == scp["name"] %}
+                storm-control {{ scp["name"] }};
+                {%- endif %}
+                {%- endfor %}
+                {%- endfor%}
+                interface-mode access;
+                vlan {
+                    members {{ interface.untagged_vlan.vid }};
+                }
+            }
+        }
+        {%- else %}
+        unit 0;
+        {%- endif %}
+    }
+    {%- endfor %}
+{%- endmacro %}
+{#-      Static routes configuration macro       #}
+{%- macro static_route_cfg(all_static_routes) %}
+{%- for route in all_static_routes %}
+route {{ route["name"] }} {
+    {%- for key, value in route.items() %}
+    {%- if value is string and key != "name" %}
+    {{ key }} {{ value }};
+    {%- elif value is mapping %}
+    {{ key }} {
+        {%- for key1, value1 in value.items() %}
+        {%- if value1 is string or value1 is number %}
+        {{ key1 }} {{ value1 }};
+        {%- elif value1 is mapping %}
+        {{ key1 }} {
+            {%- for key2, value2 in value1.items() %}
+            {%- if value2 is string or value2 is number %}
+            {{ key2 }} {{ value2 }};
+            {%- else %}
+            {{ key2 }};
+            {%- endif %}
+            {%- endfor %}
+        }
+        {%- else %}
+        {{ key1 }};
+        {%- endif %}
+        {%- endfor %}
+    }
+    {%- elif value is iterable and value is not string and value | length > 1 %}
+    {{ key }} [ {% for value_item in value %}{{ value_item }} {% endfor %}];
+    {%- elif value is iterable and value is not string %}
+    {%- for value_item in value %}
+    {%- if value_item is string or number %}
+    {{ key }} {{ value_item }};
+    {%- elif value_item is mapping %}
+    {{ key }} {{ value_item["name"] }} {
+        {%- for key_vi, val_vi in value_item.items() %}
+        {%- if val_vi is string and key_vi != "name" or val_vi is number  %}
+        {{ key_vi }} {{ val_vi }};
+        {%- endif %}
+        {%- endfor %}
+    }
+    {%- endif %}
+    {%- endfor %}
+    {%- endif %}
+    {%- endfor %}
+}
+{%- endfor %}
+{%- endmacro %}
+{#-       VRF instances configuration macro      #}
+{%- macro vrf_cfg(instances) %}
+{%- if instances | length > 0 %}
+routing-instances {
+    {%- for instance in instances %}
+    {{ instance.name|upper }} {
+        instance-type {{ instance.cf.vrf_instance_type }};
+        {%- for interface in interfaces %}
+        {%- if interface.vrf.name|upper == instance.name|upper %}
+        interface {{ interface.name }};
+        {%- endif %}
+        {%- endfor %}
+        {%- if static_routes[instance.name] is defined and static_routes[instance.name]["route"] %}
+        routing-options {
+            static {
+                {{- static_route_cfg(static_routes[instance.name]["route"]) | indent(16) }}
+            }
+        }
+        {%- endif %}
+        {%- if dhcp_relay is defined and dhcp_relay[instance.name] %}
+        forwarding-options {
+            {{- dhcp_relay_cfg(dhcp_relay[instance.name]) | indent(12) }}
+        }
+        {%- endif %}
+    }
+    {%- endfor %}
+}
+{%- endif %}
+{%- endmacro %}
+{#-        DHCP relay configuration macro        #}
+{%- macro dhcp_relay_cfg(relay_info) %}
+dhcp-relay {
+    {%- if relay_info["server-group"] %}
+    {%- set sg = relay_info["server-group"]["server-group"] %}
+    server-group {
+        {%- for relay_sg in sg %}
+        {{ relay_sg["name"] }} {
+            {%- for relay_srv in relay_sg["address"] %}
+            {{ relay_srv["name"] }};
+            {%- endfor %}
+        }
+        {%- endfor %}
+    }
+    {%- endif %}
+    {%- if relay_info["group"] %}
+    {%- for gr in relay_info["group"] %}
+    group {{ gr["name"] }} {
+        {%- for key, value in gr.items() %}
+        {%- if key == "active-server-group" %}
+        active-server-group {{ value["active-server-group"] }};
+        {%- elif value is mapping %}
+        {{ key }} {
+            {%- for key1, value1 in value.items() %}
+            {%- if value1 is string or value1 is number %}
+            {{ key1 }} {{ value1 }};
+            {%- elif value1 is mapping %}
+            {{ key1 }} {
+                {%- for key2, value2 in value1.items() %}
+                {%- if value2 is string or value2 is number %}
+                {{ key2 }} {{ value2 }};
+                {%- else %}
+                {{ key2 }};
+                {%- endif %}
+                {%- endfor %}
+            }
+            {%- else %}
+            {{ key1 }};
+            {%- endif %}
+            {%- endfor %}
+        }
+        {%- endif %}
+        {%- endfor %}
+        {%- for interface in interfaces %}
+        {%- for tag in interface.tags.all() %}
+        {%- if gr["name"]|upper == tag["name"]|upper %}
+        interface {{ interface.name }};
+        {%- endif %}
+        {%- endfor %}
+        {%- endfor %}
+    }
+    {%- endfor %}
+    {%- endif %}
+}
+{%- endmacro %}
+{#- ***********************************************
+###           System configuration              ###
+************************************************ #}
 version {{ junos_version }};
 {%- if device.virtual_chassis %}
 groups {
@@ -258,132 +524,7 @@ virtual-chassis {
 {%- endif %}
 {#- **************************************************
 ###           Interfaces configuration           ###
-**************************************************#}
-{%- macro ifs_config(interfaces) %}
-{%- for interface in interfaces %}
-{%- set fhrp_enabled = true if interface.fhrp_group_assignments.all()|length > 0 %}
-{%- set ifname = interface.name.split('.')|first %}
-{%- set unit_id = interface.name.split('.')|last if '.' in interface.name else None %}
-{%- set count_ipaddr = interface.ip_addresses.all()|length %}
-{%- set lag_member = interface.lag != None %}
-{%- set lag_agg = interface.type == "lag" %}
-{%- set has_tagged_vlans = interface.tagged_vlans != None and 'tagged' in interface.mode %}
-{%- set is_access_mode = interface.mode == 'access' %}
-    {{ ifname }} {
-        {%- if not interface.enabled %}
-        disable;
-        {%- endif %}
-        {%- if '.' not in interface.name %}
-        description "{{ interface.description | default("Missing description", true) }}";
-        {%- endif %}
-        {%- if interface.mtu %}
-        mtu {{ interface.mtu }};
-        {%- endif %}
-        {%- if lag_agg %}
-        aggregated-ether-options {
-            lacp {
-                active;
-            }
-            minimum-links 1;
-        }
-        {%- endif %}
-        {%- if count_ipaddr > 0 %}
-        {%- if '.' in interface.name %}
-        unit {{ unit_id or 0 }} {
-            description "{{ interface.description | default("Missing description", true) }}";
-        {%- else %}
-        unit 0 {
-        {%- endif %}
-            family inet {
-                {%- for ipaddr in interface.ip_addresses.all() %}
-                {%- if fhrp_enabled and ipaddr.role == "vrrp" %}
-                address {{ ipaddr }} {
-                    {%- for gr in interface.fhrp_group_assignments.all() %}
-                    vrrp-group {{ gr.group.group_id }} {
-                        {%- for vip in gr.group.ip_addresses.all() %}
-                        virtual-address {{ (vip|string).split('/')|first }};
-                        {%- endfor %}
-                        priority {{ gr.priority }};
-                        accept-data;
-                        preempt {
-                            hold-time 180;
-                        }
-                    }
-                    {%- endfor %}
-                }
-                {%- else %}
-                address {{ ipaddr }};
-                {%- endif %}
-                {%- endfor %}
-            }
-        }
-        {%- elif lag_member %}
-        gigether-options {
-            802.3ad {
-                {{ interface.lag.name }};
-            }
-        }
-        {%- elif has_tagged_vlans %}
-        {%- if interface.untagged_vlan != None %}
-        native-vlan-id {{ interface.untagged_vlan.vid }};
-        {%- endif %}
-        unit 0 {
-            family ethernet-switching {
-                {%- for tag in interface.tags.all() %}
-                {%- for scp in storm_control_profiles %}
-                {%- if tag["name"] == scp["name"] %}
-                storm-control {{ scp["name"] }};
-                {%- endif %}
-                {%- endfor %}
-                {%- endfor %}
-                {%- if interface.mode == 'tagged' %}
-                interface-mode trunk;
-                vlan {
-                    members [ {% for vlan in interface.tagged_vlans.all() %}{{ vlan.vid }} {% endfor %}];
-                }
-                {%- elif 'tagged-all' in interface.mode %}
-                interface-mode trunk;
-                vlan {
-                    members all;
-                }
-            {%- endif %}
-            }
-        }
-        {%- elif is_access_mode %}
-        unit 0 {
-            family ethernet-switching {
-                {%- for tag in interface.tags.all() %}
-                {%- for scp in storm_control_profiles %}
-                {%- if tag["name"] == scp["name"] %}
-                storm-control {{ scp["name"] }};
-                {%- endif %}
-                {%- endfor %}
-                {%- endfor%}
-                interface-mode access;
-                vlan {
-                    members {{ interface.untagged_vlan.vid }};
-                }
-            }
-        }
-        {%- else %}
-        unit 0;
-        {%- endif %}
-    }
-    {%- endfor %}
-{%- endmacro %}
-{#- Defining all interfaces for VC or standalone device #}
-{%- set interfaces = [] %}
-{%- if device.virtual_chassis %}
-{%- for node in device.virtual_chassis.members.all() %}
-{%- for interface in node.interfaces.all() %}
-{%- set interfaces = interfaces.append(interface) %}
-{%- endfor %}
-{%- endfor %}
-{%- else %}
-{%- for interface in device.interfaces.all() %}
-{%- set interfaces = interfaces.append(interface) %}
-{%- endfor %}
-{%- endif %}
+************************************************** #}
 interfaces {
 {{- ifs_config(interfaces) }}
 }
@@ -418,53 +559,6 @@ routing-options {
     {%- if device.virtual_chassis %}
     nonstop-routing;
     {%- endif %}
-{#- Static routes macro start #}
-{%- macro static_route_cfg(all_static_routes) %}
-{%- for route in all_static_routes %}
-route {{ route["name"] }} {
-    {%- for key, value in route.items() %}
-    {%- if value is string and key != "name" %}
-    {{ key }} {{ value }};
-    {%- elif value is mapping %}
-    {{ key }} {
-        {%- for key1, value1 in value.items() %}
-        {%- if value1 is string or value1 is number %}
-        {{ key1 }} {{ value1 }};
-        {%- elif value1 is mapping %}
-        {{ key1 }} {
-            {%- for key2, value2 in value1.items() %}
-            {%- if value2 is string or value2 is number %}
-            {{ key2 }} {{ value2 }};
-            {%- else %}
-            {{ key2 }};
-            {%- endif %}
-            {%- endfor %}
-        }
-        {%- else %}
-        {{ key1 }};
-        {%- endif %}
-        {%- endfor %}
-    }
-    {%- elif value is iterable and value is not string %}
-    {%- for value_item in value %}
-    {%- if value_item is string %}
-    {{ key }} [ {% for value_item in value %}{{ value_item }} {% endfor %}];
-    {%- elif value_item is mapping %}
-    {{ key }} {{ value_item["name"] }} {
-        {%- for key_vi, val_vi in value_item.items() %}
-        {%- if val_vi is string and key_vi != "name" or val_vi is number  %}
-        {{ key_vi }} {{ val_vi }};
-        {%- endif %}
-        {%- endfor %}
-    }
-    {%- endif %}
-    {%- endfor %}
-    {%- endif %}
-    {%- endfor %}
-}
-{%- endfor %}
-{%- endmacro %}
-{#- Static routes macro end #}
     {%- if static_routes["default"] is defined and static_routes["default"]["route"] %}
     static {
         {{- static_route_cfg(static_routes["default"]["route"]) | indent(8) }}
@@ -496,87 +590,6 @@ protocols {
 {#- **************************************************
 ###                VRF configuration             ###
 **************************************************#}
-{%- macro vrf_cfg(instances) %}
-{%- if instances | length > 0 %}
-routing-instances {
-    {%- for instance in instances %}
-    {{ instance.name|upper }} {
-        instance-type {{ instance.cf.vrf_instance_type }};
-        {%- for interface in interfaces %}
-        {%- if interface.vrf.name|upper == instance.name|upper %}
-        interface {{ interface.name }};
-        {%- endif %}
-        {%- endfor %}
-        {%- if static_routes[instance.name] is defined and static_routes[instance.name]["route"] %}
-        routing-options {
-            static {
-                {{- static_route_cfg(static_routes[instance.name]["route"]) | indent(16) }}
-            }
-        }
-        {%- endif %}
-        {%- if dhcp_relay is defined and dhcp_relay[instance.name] %}
-        forwarding-options {
-            dhcp-relay {
-                {%- if dhcp_relay[instance.name]["server-group"]%}
-                {%- set sg = dhcp_relay[instance.name]["server-group"]["server-group"] %}
-                server-group {
-                    {%- for relay_sg in sg %}
-                    {{ relay_sg["name"] }} {
-                        {%- for relay_srv in relay_sg["address"] %}
-                        {{ relay_srv["name"] }};
-                        {%- endfor %}
-                    }
-                    {%- endfor %}
-                }
-                {%- endif %}
-                {%- if dhcp_relay[instance.name]["group"] %}
-                {%- for gr in dhcp_relay[instance.name]["group"] %}
-                group {{ gr["name"] }} {
-                    {%- for key, value in gr.items() %}
-                    {%- if key == "active-server-group" %}
-                    active-server-group {{ value["active-server-group"] }};
-                    {%- elif value is mapping %}
-                    {{ key }} {
-                        {%- for key1, value1 in value.items() %}
-                        {%- if value1 is string or value1 is number %}
-                        {{ key1 }} {{ value1 }};
-                        {%- elif value1 is mapping %}
-                        {{ key1 }} {
-                            {%- for key2, value2 in value1.items() %}
-                            {%- if value2 is string or value2 is number %}
-                            {{ key2 }} {{ value2 }};
-                            {%- else %}
-                            {{ key2 }};
-                            {%- endif %}
-                            {%- endfor %}
-                        }
-                        {%- else %}
-                        {{ key1 }};
-                        {%- endif %}
-                        {%- endfor %}
-                    }
-                    {%- endif %}
-                    {%- endfor %}
-                    {%- for interface in interfaces %}
-                    {%- for tag in interface.tags.all() %}
-                    {%- if gr["name"]|upper == tag["name"]|upper %}
-                    interface {{ interface.name }};
-                    {%- endif %}
-                    {%- endfor %}
-                    {%- endfor %}
-                }
-                {%- endfor %}
-                {%- endif %}
-            }
-        }
-        {%- endif %}
-    }
-    {%- endfor %}
-}
-{%- endif %}
-{%- endmacro %}
-{#- Defining all VRF instances for VC or standalone device #}
-{%- set instances = interfaces | selectattr("vrf.name", "defined") | map(attribute="vrf") | unique | list %}
 {{- vrf_cfg(instances) }}
 {#- **************************************************
 ###                Forwarding options              ###
@@ -602,58 +615,7 @@ forwarding-options {
     {%- endfor %}
     {%- endif %}
     {%- if dhcp_relay is defined and dhcp_relay["default"] %}
-    dhcp-relay {
-        {%- if dhcp_relay["default"]["server-group"] %}
-        {%- set sg = dhcp_relay["default"]["server-group"]["server-group"] %}
-        server-group {
-            {%- for relay_sg in sg %}
-            {{ relay_sg["name"] }} {
-                {%- for relay_srv in relay_sg["address"] %}
-                {{ relay_srv["name"] }};
-                {%- endfor %}
-            }
-            {%- endfor %}
-        }
-        {%- endif %}
-        {%- if dhcp_relay["default"]["group"] %}
-        {%- for gr in dhcp_relay["default"]["group"] %}
-        group {{ gr["name"] }} {
-            {%- for key, value in gr.items() %}
-            {%- if key == "active-server-group" %}
-            active-server-group {{ value["active-server-group"] }};
-            {%- elif value is mapping %}
-            {{ key }} {
-                {%- for key1, value1 in value.items() %}
-                {%- if value1 is string or value1 is number %}
-                {{ key1 }} {{ value1 }};
-                {%- elif value1 is mapping %}
-                {{ key1 }} {
-                    {%- for key2, value2 in value1.items() %}
-                    {%- if value2 is string or value2 is number %}
-                    {{ key2 }} {{ value2 }};
-                    {%- else %}
-                    {{ key2 }};
-                    {%- endif %}
-                    {%- endfor %}
-                }
-                {%- else %}
-                {{ key1 }};
-                {%- endif %}
-                {%- endfor %}
-            }
-            {%- endif %}
-            {%- endfor %}
-            {%- for interface in interfaces %}
-            {%- for tag in interface.tags.all() %}
-            {%- if gr["name"]|upper == tag["name"]|upper %}
-            interface {{ interface.name }};
-            {%- endif %}
-            {%- endfor %}
-            {%- endfor %}
-        }
-        {%- endfor %}
-        {%- endif %}
-    }
+    {{- dhcp_relay_cfg(dhcp_relay["default"]) | indent(4) }}
     {%- endif %}
 }
 {%- endif %}
