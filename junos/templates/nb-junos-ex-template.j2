@@ -418,31 +418,57 @@ routing-options {
     {%- if device.virtual_chassis %}
     nonstop-routing;
     {%- endif %}
-    {%- if static_routes %}
-    {%- for vrf, routes in static_routes.vrfs.items() %}
-    {%- if vrf == "default" %}
-    static {
-        {%- for dest, next_hops in routes.dests.items() %}
-        route {{ dest }} {
-            {%- for nh, props in next_hops.nhs.items() %}
-            {%- if not props["qualified"] %}
-            next-hop {{ nh }};
+{#- Static routes macro start #}
+{%- macro static_route_cfg(all_static_routes) %}
+{%- for route in all_static_routes %}
+route {{ route["name"] }} {
+    {%- for key, value in route.items() %}
+    {%- if value is string and key != "name" %}
+    {{ key }} {{ value }};
+    {%- elif value is mapping %}
+    {{ key }} {
+        {%- for key1, value1 in value.items() %}
+        {%- if value1 is string or value1 is number %}
+        {{ key1 }} {{ value1 }};
+        {%- elif value1 is mapping %}
+        {{ key1 }} {
+            {%- for key2, value2 in value1.items() %}
+            {%- if value2 is string or value2 is number %}
+            {{ key2 }} {{ value2 }};
             {%- else %}
-            qualified-next-hop {{ nh }} {
-                {%- if props["metric"] != "default" %}
-                metric {{ props["metric"] }};
-                {%- endif %}
-                {%- if props["preference"] != "default" %}
-                preference {{ props["preference"] }};
-                {%- endif %}
-            }
+            {{ key2 }};
             {%- endif %}
             {%- endfor %}
         }
+        {%- else %}
+        {{ key1 }};
+        {%- endif %}
+        {%- endfor %}
+    }
+    {%- elif value is iterable and value is not string %}
+    {%- for value_item in value %}
+    {%- if value_item is string %}
+    {{ key }} [ {% for value_item in value %}{{ value_item }} {% endfor %}];
+    {%- elif value_item is mapping %}
+    {{ key }} {{ value_item["name"] }} {
+        {%- for key_vi, val_vi in value_item.items() %}
+        {%- if val_vi is string and key_vi != "name" or val_vi is number  %}
+        {{ key_vi }} {{ val_vi }};
+        {%- endif %}
         {%- endfor %}
     }
     {%- endif %}
     {%- endfor %}
+    {%- endif %}
+    {%- endfor %}
+}
+{%- endfor %}
+{%- endmacro %}
+{#- Static routes macro end #}
+    {%- if static_routes["default"] is defined and static_routes["default"]["route"] %}
+    static {
+        {{- static_route_cfg(static_routes["default"]["route"]) | indent(8) }}
+    }
     {%- endif %}
 }
 {#- **************************************************
@@ -481,32 +507,11 @@ routing-instances {
         interface {{ interface.name }};
         {%- endif %}
         {%- endfor %}
-        {%- if static_routes %}
+        {%- if static_routes[instance.name] is defined and static_routes[instance.name]["route"] %}
         routing-options {
-        {%- for vrf, routes in static_routes.vrfs.items() %}
-        {%- if vrf|upper == instance.name|upper %}
             static {
-                {%- for dest, next_hops in routes.dests.items() %}
-                route {{ dest }} {
-                    {%- for nh, props in next_hops.nhs.items() %}
-                    {%- if not props["qualified"] %}
-                    next-hop {{ nh }};
-                    {%- else %}
-                    qualified-next-hop {{ nh }} {
-                        {%- if props["metric"] != "default" %}
-                        metric {{ props["metric"] }};
-                        {%- endif %}
-                        {%- if props["preference"] != "default" %}
-                        preference {{ props["preference"] }};
-                        {%- endif %}
-                    }
-                    {%- endif %}
-                    {%- endfor %}
-                }
-                {%- endfor %}
+                {{- static_route_cfg(static_routes[instance.name]["route"]) | indent(16) }}
             }
-        {%- endif %}
-        {%- endfor %}
         }
         {%- endif %}
         {%- if dhcp_relay is defined and dhcp_relay[instance.name] %}
