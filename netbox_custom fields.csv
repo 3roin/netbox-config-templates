@@ -1,5 +1,9 @@
 Name,Content types,Label,Group name,Type,Required,Description,Default,Search weight,Filter logic,UI visibility,Display weight,Choices,ID,Cloneable,Created,Last updated
+dhcp_pools,ipam.ipaddress,DHCP Pools,,Multiple objects,False,,,1000,Loose,Read/Write,100,[],14,False,2023-07-19 11:12,2023-07-19 11:16
 primary_root_bridge,ipam.vlangroup,Primary Root Bridge,,Object,False,,,1000,Loose,Read/Write,100,[],10,False,2023-06-24 11:57,2023-06-24 12:03
+range_dns,ipam.iprange,Range DNS servers,,Text (long),True,,,1000,Loose,Read/Write,100,[],17,False,2023-07-19 11:46,2023-07-19 11:46
+range_gw,ipam.iprange,Range Gateway,,Multiple objects,True,,,1000,Loose,Read/Write,100,[],16,False,2023-07-19 11:43,2023-07-19 11:43
+range_network,ipam.iprange,Range Network,,Object,True,,,1000,Loose,Read/Write,100,[],15,False,2023-07-19 11:33,2023-07-19 11:33
 secondary_root_bridge,ipam.vlangroup,Secondary Root Bridge,,Object,False,,,1000,Loose,Read/Write,100,[],11,False,2023-06-24 12:04,2023-06-24 12:04
 vc_role,dcim.device,Virtual Chassis Role,,Selection,False,,,1000,Loose,Read/Write,100,"['RE', 'LC']",7,False,2023-06-19 13:38,2023-06-19 13:38
 vrf_instance_type,ipam.vrf,VRF Instance Type,,Selection,True,Used to define VRF instance type,,1000,Loose,Read/Write,100,"['evpn', 'evpn-vpws', 'forwarding', 'l2backhaul-vpn', 'l2vpn', 'layer2-control', 'mac-vrf', 'mpls-forwarding', 'mpls-internet-multicast', 'no-forwarding', 'virtual-router', 'virtual-switch', 'vpls', 'vrf']",12,False,2023-07-11 08:50,2023-07-11 09:21
