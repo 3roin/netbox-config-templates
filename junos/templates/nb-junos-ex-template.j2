@@ -14,6 +14,30 @@
 {%- set interfaces = interfaces.append(interface) %}
 {%- endfor %}
 {%- endif %}
+{#-         Defining device all IP addresses      #}
+{%- set all_addr = [] %}
+{%- for interface in interfaces %}
+{%- for addr in interface.ip_addresses.all() %}
+{%- if addr not in all_addr %}
+{%- set all_addr = all_addr.append(addr) %}
+{%- endif %}
+{%- endfor %}
+{%- endfor %}
+{# Testing DHCP configuration #}
+{%- for addr in all_addr %}
+{%- if addr.cf.dhcp_pools %}
+{%- for pool in addr.cf.dhcp_pools %}
+Pool name: {{- (pool | string).split("/") | first | replace(".", "_") }}
+{%- for gw in pool.cf.range_gw.all() %}
+Pool GW: {{- gw.address.ip }}
+{%- endfor %}
+Pool Network: {{- pool.cf.range_network }}
+{%- for dns in pool.cf.range_dns.split(",") %}
+Pool DNS: {{- dns | trim }}
+{%- endfor %}
+{%- endfor %}
+{%- endif %}
+{%- endfor %}
 {#-     Defining VRFs for VC or single device    #}
 {%- set instances = interfaces | selectattr("vrf.name", "defined") | map(attribute="vrf") | unique | list %}
 {#- ***********************************************
