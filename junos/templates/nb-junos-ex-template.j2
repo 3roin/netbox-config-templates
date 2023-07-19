@@ -23,17 +23,17 @@
 {%- endif %}
 {%- endfor %}
 {%- endfor %}
-{# Testing DHCP configuration #}
+{#- Testing DHCP configuration #}
 {%- for addr in all_addr %}
 {%- if addr.cf.dhcp_pools %}
 {%- for pool in addr.cf.dhcp_pools %}
-Pool name: {{- (pool | string).split("/") | first | replace(".", "_") }}
+Pool name: {{ (pool | string).split("/") | first | replace(".", "_") }}
 {%- for gw in pool.cf.range_gw.all() %}
-Pool GW: {{- gw.address.ip }}
+Pool GW: {{ gw.address.ip }}
 {%- endfor %}
-Pool Network: {{- pool.cf.range_network }}
+Pool Network: {{ pool.cf.range_network }}
 {%- for dns in pool.cf.range_dns.split(",") %}
-Pool DNS: {{- dns | trim }}
+Pool DNS: {{ dns | trim }}
 {%- endfor %}
 {%- endfor %}
 {%- endif %}
