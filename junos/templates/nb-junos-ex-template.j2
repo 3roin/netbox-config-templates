@@ -14,17 +14,21 @@
 {%- set interfaces = interfaces.append(interface) %}
 {%- endfor %}
 {%- endif %}
-{#-         Defining device all IP addresses      #}
-{%- set all_addr = [] %}
+{#-        Defining DHCP local server flags      #}
+{%- set dhcp_group_exists = interfaces | selectattr("cf.dhcp_group", "defined") | map(attribute="cf.dhcp_group") | unique | list %}
+{%- set dhcp_pools_default = [] %}
+{%- set dhcp_pools_vrfs = [] %}
 {%- for interface in interfaces %}
-{%- for addr in interface.ip_addresses.all() %}
-{%- if addr not in all_addr %}
-{%- set all_addr = all_addr.append(addr) %}
+{%- if interface.cf.dhcp_pools != None %}
+{%- for pool in interface.cf.dhcp_pools %}
+{%- if not pool.vrf %}
+{%- set dhcp_pools_default = dhcp_pools_default.append(pool) %}
+{%- else %}
+{%- set dhcp_pools_vrfs = dhcp_pools_vrfs.append(pool) %}
 {%- endif %}
 {%- endfor %}
+{%- endif %}
 {%- endfor %}
-{#-           Setting DHCP enabled flag          #}
-{%- set dhcp_enabled = interfaces | selectattr("cf.dhcp_group", "defined") | map(attribute="cf.dhcp_group") | unique | list %}
 {#-     Defining VRFs for VC or single device    #}
 {%- set instances = interfaces | selectattr("vrf.name", "defined") | map(attribute="vrf") | unique | list %}
 {#- ***********************************************
@@ -203,6 +207,30 @@ routing-instances {
         interface {{ interface.name }};
         {%- endif %}
         {%- endfor %}
+        {%- if instance.name in dhcp_pools_vrfs | selectattr("vrf.name", "defined") | map(attribute="vrf.name") | unique | list %}
+        system {
+            services {
+                dhcp-local-server {
+                    {%- for interface in interfaces %}
+                    {%- if interface.vrf.name|upper == instance.name|upper and interface.cf.dhcp_group %}
+                    group "DHCP_GR_{{ interface.cf.dhcp_group | upper }}" {
+                        interface {{ interface["name"] }};
+                    }
+                    {%- endif %}
+                    {%- endfor %}
+                }
+            }
+        }
+        access {
+            address-assignment {
+                {%- for pool in dhcp_pools_vrfs %}
+                {%- if pool.vrf.name == instance.name %}
+                {{- dhcp_pool_cfg(pool) | indent(16) }}
+                {%- endif %}
+                {%- endfor %}
+            }
+        }
+        {%- endif %}        
         {%- if static_routes[instance.name] is defined and static_routes[instance.name]["route"] %}
         routing-options {
             static {
@@ -275,6 +303,35 @@ dhcp-relay {
     {%- endif %}
 }
 {%- endmacro %}
+{#-      DHCP local server pools config macro    #}
+{%- macro dhcp_pool_cfg(pool) %}
+pool "{{ (pool | string) | replace(".", "_") | replace("/", "-") }}" {
+    family inet {
+        network {{ pool }};
+        {%- for range in pool.cf.dhcp_pool_ranges %}
+        range {{ (range | string).split("/") | first | replace(".", "_") }} {
+            low {{ range.start_address.ip }};
+            high {{ range.end_address.ip }};
+        }
+        {%- endfor %}
+        dhcp-attributes {
+            name-server {
+                {%- for dns in pool.cf.dhcp_pool_dns.split(", ") %}
+                {{ dns }};
+                {%- endfor %}
+            }
+            router {
+                {%- for gw in pool.cf.dhcp_pool_gw %}
+                {{ (gw | string).split("/") | first }};
+                {%- endfor %}
+            }
+        }
+    }
+}
+{%- endmacro %}
+{#- ***********************************************
+###           Configuration section             ###
+************************************************ #}
 {#- ***********************************************
 ###           System configuration              ###
 ************************************************ #}
@@ -331,10 +388,10 @@ system {
                 port {{netconf_port | default("830", true) }};
             }
         }
-        {%- if dhcp_enabled %}
+        {%- if dhcp_group_exists and dhcp_pools_default %}
         dhcp-local-server {
             {%- for interface in interfaces %}
-            {%- if interface.cf.dhcp_group %}
+            {%- if not interface.vrf and interface.cf.dhcp_group %}
             group "DHCP_GR_{{ interface.cf.dhcp_group | upper }}" {
                 interface {{ interface["name"] }};
             }
@@ -444,37 +501,11 @@ system {
 {#- ***********************************************
 ###           Access configuration              ###
 *************************************************#}
-{%- if dhcp_enabled %}
+{%- if dhcp_pools_default %}
 access {
     address-assignment {
-        {%- for interface in interfaces %}
-        {%- if interface.cf.dhcp_pools != None %}
-        {%- for pool in interface.cf.dhcp_pools %}
-        pool "{{ (pool | string) | replace(".", "_") | replace("/", "-") }}" {
-            family inet {
-                network {{ pool }};
-                {%- for range in pool.cf.dhcp_pool_ranges %}
-                range {{ (range | string).split("/") | first | replace(".", "_") }} {
-                    low {{ range.start_address.ip }};
-                    high {{ range.end_address.ip }};
-                }
-                {%- endfor %}
-                dhcp-attributes {
-                    name-server {
-                        {%- for dns in pool.cf.dhcp_pool_dns.split(", ") %}
-                        {{ dns }};
-                        {%- endfor %}
-                    }
-                    router {
-                        {%- for gw in pool.cf.dhcp_pool_gw %}
-                        {{ (gw | string).split("/") | first }};
-                        {%- endfor %}
-                    }
-                }
-            }
-        }
-        {%- endfor %}
-        {%- endif %}
+        {%- for pool in dhcp_pools_default %}
+        {{- dhcp_pools_cfg(pool) | indent(8) }}
         {%- endfor %}
     }
 }
