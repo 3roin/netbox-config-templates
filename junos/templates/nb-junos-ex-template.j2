@@ -23,21 +23,8 @@
 {%- endif %}
 {%- endfor %}
 {%- endfor %}
-{#- Testing DHCP configuration #}
-{%- for addr in all_addr %}
-{%- if addr.cf.dhcp_pools %}
-{%- for pool in addr.cf.dhcp_pools %}
-Pool name: {{ (pool | string).split("/") | first | replace(".", "_") }}
-{%- for gw in pool.cf.range_gw.all() %}
-Pool GW: {{ gw.address.ip }}
-{%- endfor %}
-Pool Network: {{ pool.cf.range_network }}
-{%- for dns in pool.cf.range_dns.split(",") %}
-Pool DNS: {{ dns | trim }}
-{%- endfor %}
-{%- endfor %}
-{%- endif %}
-{%- endfor %}
+{#-           Setting DHCP enabled flag          #}
+{%- set dhcp_enabled = interfaces | selectattr("cf.dhcp_group", "defined") | map(attribute="cf.dhcp_group") | unique | list %}
 {#-     Defining VRFs for VC or single device    #}
 {%- set instances = interfaces | selectattr("vrf.name", "defined") | map(attribute="vrf") | unique | list %}
 {#- ***********************************************
@@ -344,6 +331,17 @@ system {
                 port {{netconf_port | default("830", true) }};
             }
         }
+        {%- if dhcp_enabled %}
+        dhcp-local-server {
+            {%- for interface in interfaces %}
+            {%- if interface.cf.dhcp_group %}
+            group "DHCP_GR_{{ interface.cf.dhcp_group | upper }}" {
+                interface {{ interface["name"] }};
+            }
+            {%- endif %}
+            {%- endfor %}
+        }
+        {%- endif %}
     }
     {%- if authentication_order %}
     authentication-order [ {% for auth in authentication_order %}{{ auth }} {% endfor %}];
@@ -443,6 +441,44 @@ system {
     time-zone {{ time_zone }};
     {%- endif %}
 }
+{#- ***********************************************
+###           Access configuration              ###
+*************************************************#}
+{%- if dhcp_enabled %}
+access {
+    address-assignment {
+        {%- for interface in interfaces %}
+        {%- if interface.cf.dhcp_pools != None %}
+        {%- for pool in interface.cf.dhcp_pools %}
+        pool "{{ (pool | string) | replace(".", "_") | replace("/", "-") }}" {
+            family inet {
+                network {{ pool }};
+                {%- for range in pool.cf.dhcp_pool_ranges %}
+                range {{ (range | string).split("/") | first | replace(".", "_") }} {
+                    low {{ range.start_address.ip }};
+                    high {{ range.end_address.ip }};
+                }
+                {%- endfor %}
+                dhcp-attributes {
+                    name-server {
+                        {%- for dns in pool.cf.dhcp_pool_dns.split(", ") %}
+                        {{ dns }};
+                        {%- endfor %}
+                    }
+                    router {
+                        {%- for gw in pool.cf.dhcp_pool_gw %}
+                        {{ (gw | string).split("/") | first }};
+                        {%- endfor %}
+                    }
+                }
+            }
+        }
+        {%- endfor %}
+        {%- endif %}
+        {%- endfor %}
+    }
+}
+{%- endif %}
 {#- **************************************************
 ###           SNMP configuration              ###
 **************************************************#}
