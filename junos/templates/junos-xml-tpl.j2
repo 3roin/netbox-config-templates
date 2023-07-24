@@ -1,0 +1,591 @@
+{#- ***********************************************
+*              Pre-defined variables              *
+************************************************ #}
+{#-  Defining interfaces for VC or single device #}
+{%- set interfaces = [] %}
+{%- if device.virtual_chassis %}
+{%- for node in device.virtual_chassis.members.all() %}
+{%- for interface in node.interfaces.all() %}
+{%- set interfaces = interfaces.append(interface) %}
+{%- endfor %}
+{%- endfor %}
+{%- else %}
+{%- for interface in device.interfaces.all() %}
+{%- set interfaces = interfaces.append(interface) %}
+{%- endfor %}
+{%- endif %}
+{#-     Defining VRFs for VC or single device    #}
+{%- set instances = interfaces | selectattr("vrf.name", "defined") | map(attribute="vrf") | unique | list %}
+{#-        Defining DHCP local server flags      #}
+{%- set dhcp_group_exists = interfaces | selectattr("cf.dhcp_group", "defined") | map(attribute="cf.dhcp_group") | unique | list %}
+{%- set dhcp_pools_default = [] %}
+{%- set dhcp_pools_vrfs = [] %}
+{%- for interface in interfaces %}
+{%- if interface.cf.dhcp_pools != None %}
+{%- for pool in interface.cf.dhcp_pools %}
+{%- if not pool.vrf %}
+{%- set dhcp_pools_default = dhcp_pools_default.append(pool) %}
+{%- else %}
+{%- set dhcp_pools_vrfs = dhcp_pools_vrfs.append(pool) %}
+{%- endif %}
+{%- endfor %}
+{%- endif %}
+{%- endfor %}
+{#- ***********************************************
+*               Template MACROs                   *
+************************************************ #}
+{#-      DHCP local server pools config macro    #}
+{%- macro dhcp_pool_cfg(pool) %}
+<pool>
+    <name>{{ (pool | string) | replace(".", "_") | replace("/", "-") }}</name>
+    <family>
+        <inet>
+            <network>{{ pool }}</network>
+            {%- for range in pool.cf.dhcp_pool_ranges %}
+            <range>
+                <name>{{ (range | string).split("/") | first | replace(".", "_") }}</name>
+                <low>{{ range.start_address.ip }}</low>
+                <high>{{ range.end_address.ip }}</high>
+            </range>
+            {%- endfor %}
+            <dhcp-attributes>
+            {%- for dns in pool.cf.dhcp_pool_dns.split(", ") %}
+                <name-server>
+                    <name>{{ dns }}</name>
+                </name-server>
+            {%- endfor %}
+            {%- for gw in pool.cf.dhcp_pool_gw %}
+                <router>
+                    <name>{{ (gw | string).split("/") | first }}</name>
+                </router>
+            {%- endfor %}
+            </dhcp-attributes>
+        </inet>
+    </family>
+</pool>
+{%- endmacro %}
+{#-        DHCP relay configuration macro        #}
+{%- macro dhcp_relay_cfg(relay_info) %}
+<dhcp-relay>
+    {%- if relay_info["server-group"] %}
+    {%- set sg = relay_info["server-group"]["server-group"] %}
+    <server-group>
+        {%- for relay_sg in sg %}
+        <server-group>
+            {%- for relay_sg in sg %}
+            <name>{{ relay_sg["name"] }}</name>
+            {%- for relay_srv in relay_sg["address"] %}
+            <address>
+                <name>{{ relay_srv["name"] }}</name>
+            </address>
+            {%- endfor %}
+            {%- endfor %}
+        </server-group>
+        {%- endfor %}
+    </server-group>
+    {%- endif %}
+    {%- if relay_info["group"] %}
+    {%- for gr in relay_info["group"] %}
+    <group>
+        <name>{{ gr["name"] }}</name>
+        {%- for key, value in gr.items() %}
+        {%- if key == "active-server-group" %}
+        <active-server-group>
+            <active-server-group>{{ value["active-server-group"] }}</active-server-group>
+        </active-server-group>
+        {%- elif value is mapping %}
+        <{{ key }}>
+            {%- for key1, value1 in value.items() %}
+            {%- if key1 == "always-write-option-82" %}
+            <always-write-option-82>
+            </always-write-option-82>
+            {%- elif value1 is string or value1 is number %}
+            <{{ key1 }}>{{ value1 }}</{{ key1 }}>
+            {%- elif value1 is mapping %}
+            <{{ key1 }}>
+                {%- for key2, value2 in value1.items() %}
+                {%- if value2 is string or value2 is number %}
+                <{{ key2 }}>{{ value2 }}</{{ key2 }}>
+                {%- else %}
+                <{{ key2 }}/>
+                {%- endif %}
+                {%- endfor %}
+            {%- else %}
+            <{{ key1 }}/>
+            {%- endif %}
+            {%- endfor %}
+        </{{ key }}>
+        {%- endif %}
+        {%- endfor %}
+        {%- for interface in interfaces %}
+        {%- for tag in interface.tags.all() %}
+        {%- if gr["name"]|upper == tag["name"]|upper %}
+        <interface>
+            <name>{{ interface.name }}</name>
+        </interface>
+        {%- endif %}
+        {%- endfor %}
+        {%- endfor %}
+    </group>
+    {%- endfor %}
+    {%- endif %}
+</dhcp-relay>
+{%- endmacro %}
+{#- **********************************************
+*            Configuration block start           *
+*********************************************** #}
+<configuration>
+    <version>{{ junos_version }}</version>
+{#- **********************************************
+*   Virtual-Chassis related configuration start  *
+*********************************************** #}
+    {%- if device.virtual_chassis %}
+    <groups>
+        <name>member0</name>
+        <system>
+            <host-name>{% for node in device.virtual_chassis.members.all() %}{%- if node.vc_position == 0 %}{{ node.name }}{%- endif %}{%- endfor %}</host-name>
+        </system>
+    </groups>
+    <groups>
+        <name>member1</name>
+        <system>
+            <host-name>{% for node in device.virtual_chassis.members.all() %}{%- if node.vc_position == 1 %}{{ node.name }}{%- endif %}{%- endfor %}</host-name>
+        </system>
+    </groups>
+    <apply-groups>member0</apply-groups>
+    <apply-groups>member1</apply-groups>
+    <system>
+        <commit>
+            <synchronize/>
+        </commit>
+    </system>
+    <chassis>
+        <redundancy>
+            <graceful-switchover>
+            </graceful-switchover>
+        </redundancy>
+    </chassis>
+    <virtual-chassis>
+        <preprovisioned/>
+        {%- if device.virtual_chassis.members.all() | length == 2 %}
+        <no-split-detection/>
+        {%- endif %}
+        {%- for node in device.virtual_chassis.members.all() %}
+        <member>
+            <name>{{ node.vc_position }}</name>
+            {%- if node.cf.vc_role == "RE" %}
+            <role>routing-engine</role>
+            {%- else %}
+            <role>line-card</role>
+            {%- endif %}
+            <serial-number>{{ node.serial }}</serial-number>
+        </member>
+        {%- endfor %}
+    </virtual-chassis>
+    <routing-options>
+        <nonstop-routing/>
+    </routing-options>
+    <protocols>
+        <layer2-control>
+            <nonstop-bridging/>
+        </layer2-control>
+    </protocols>
+    {%- endif %}
+{#- **********************************************
+*   Virtual-Chassis related configuration end    *
+*********************************************** #}
+{#- **********************************************
+*        Default System configuration start      *
+*********************************************** #}
+    <system>
+        {%- if not device.virtual_chassis %}
+        <host-name>{{ device.name }}</host-name>
+        {%- endif %}
+        <root-authentication>
+            <encrypted-password>{{ root_passwd }}</encrypted-password>
+        </root-authentication>
+        <login>
+            <idle-timeout>{{ login_idle_timeout | default("60", true) }}</idle-timeout>
+            {%- if login["user"] %}
+            {%- for usr in login["user"] %}
+            <user>
+                <name>{{ usr["name"] }}</name>
+                <uid>{{ usr["uid"] }}</uid>
+                <class>{{ usr["class"] }}</class>
+                <authentication>
+                    {%- for method, opt in usr["authentication"].items() %}
+                    {%- if method == "ssh-rsa"%}
+                    {%- for opt_val in opt %}
+                    <{{ method }}>
+                        <name>{{ opt_val["name"] }}</name>
+                    </{{ method }}>
+                    {%- endfor %}
+                    {%- elif method == "encrypted-password" %}
+                    {%- for opt_val in opt %}
+                    <{{ method }}>{{ opt_val["name"] }}</{{ method }}>
+                    {%- endfor %}
+                    {%- endif %}
+                    {%- endfor %}
+                </authentication>
+            </user>
+            {%- endfor %}
+            {%- endif %}
+        </login>
+        <services>
+            <ssh>
+                <root-login>allow</root-login>
+                <protocol-version>v2</protocol-version>
+            </ssh>
+            <netconf>
+                <ssh>
+                    <port>{{netconf_port | default("830", true) }}</port>
+                </ssh>
+            </netconf>
+        </services>
+        {%- if domain_name %}
+        <domain-name>{{ domain_name }}</domain-name>
+        {%- endif %}
+        {%- if time_zone %}
+        <time-zone>{{ time_zone }}</time-zone>
+        {%- endif %}
+        {%- if authentication_order %}
+        {%- for auth in authentication_order %}
+        <authentication-order>{{ auth }}</authentication-order>
+        {%- endfor %}
+        {%- endif %}
+        {%- if name_server %}
+        {%- for dns_srv in name_server %}
+        <name-server>
+            <name>{{ dns_srv["name"] }}</name>
+        </name-server>
+        {%- endfor %}
+        {%- endif %}
+        {%- if radius_server %}
+        {%- for rad in radius_server %}
+        <radius-server>
+            <name>{{ rad["name"] }}</name>
+            <routing-instance>{{ rad["routing-instance"] }}</routing-instance>
+            <secret>{{ rad["secret"] }}</secret>
+            <source-address>{{ device.primary_ip.address.ip }}</source-address>
+        </radius-server>
+        {%- endfor %}
+        {%- endif %}
+        {%- if tacplus_server %}
+        {%- for tac in tacplus_server %}
+        <tacplus-server>
+            <name>{{ tac["name"] }}</name>
+            <routing-instance>{{ tac["routing-instance"] }}</routing-instance>
+            <secret>{{ tac["secret"] }}</secret>
+            <single-connection/>
+            <source-address>{{ device.primary_ip.address.ip }}</source-address>
+        </tacplus-server>
+        {%- endfor %}
+        {%- endif %}
+        {%- if radius_options %}
+        <radius-options>
+            <password-protocol>{{ radius_options["password-protocol"] }}</password-protocol>
+        </radius-options>
+        {%- endif %}
+        {%- if accounting %}
+        <accounting>
+            {%- if accounting["events"] %}
+            {%- for event in accounting["events"] %}
+            <events>{{ event }}</events>
+            {%- endfor %}
+            {%- endif %}
+            <destination>
+                {%- for proto, srv_list in accounting["destination"].items() %}
+                <{{ proto }}>
+                    {%- for name, props in srv_list.items() %}
+                    {%- for srv in props %}
+                    <server>
+                        {%- for key, value in srv.items() %}
+                        {%- if key == "single-connection" %}
+                        <single-connection/>
+                        {%- else %}
+                        <{{ key }}>{{ value }}</{{ key }}>
+                        {%- endif %}
+                        {%- endfor %}
+                        <source-address>{{ device.primary_ip.address.ip }}</source-address>
+                    </server>
+                    {%- endfor %}
+                    {%- endfor %}
+                </{{ proto }}>
+                {%- endfor %}
+            </destination>
+        </accounting>
+        {%- endif %}
+        <syslog>
+            <user>
+                <name>*</name>
+                <contents>
+                    <name>any</name>
+                    <emergency/>
+                </contents>
+            </user>
+            <file>
+                <name>interactive-commands</name>
+                <contents>
+                    <name>interactive-commands</name>
+                    <any/>
+                </contents>
+            </file>
+            <file>
+                <name>messages</name>
+                <contents>
+                    <name>any</name>
+                    <notice/>
+                </contents>
+                <contents>
+                    <name>authorization</name>
+                    <info/>
+                </contents>
+            </file>
+        </syslog>
+        {%- if ntp %}
+        <ntp>
+            {%- for ntp_srv in ntp["server"] %}
+            <server>
+                <name>{{ ntp_srv["name"] }}</name>
+            </server>
+            {%- endfor %}
+            <source-address>
+                <name>{{ device.primary_ip.address.ip }}</name>
+            </source-address>
+        </ntp>
+        {%- endif %}
+    </system>
+{#- **********************************************
+*        Default System configuration end        *
+*********************************************** #}
+{#- **********************************************
+*    Default Load-Balance configuration start    *
+*********************************************** #}
+    <policy-options>
+        <policy-statement>
+            <name>lb</name>
+            <then>
+                <load-balance>
+                    <per-packet/>
+                </load-balance>
+            </then>
+        </policy-statement>
+    </policy-options>
+    <routing-options>
+        <forwarding-table>
+            <export>lb</export>
+        </forwarding-table>
+    </routing-options>
+{#- **********************************************
+*    Default Load-Balance configuration end      *
+*********************************************** #}
+{#- **********************************************
+*       Default Chassis configuration start      *
+*********************************************** #}
+    <chassis>
+        <aggregated-devices>
+            <ethernet>
+                <device-count>{{ agg_dev_count | default("16", true) }}</device-count>
+            </ethernet>
+        </aggregated-devices>
+        <alarm>
+            <management-ethernet>
+                <link-down>ignore</link-down>
+            </management-ethernet>
+        </alarm>
+    </chassis>
+{#- **********************************************
+*        Default Chassis configuration end       *
+*********************************************** #}
+{#- **********************************************
+*           SNMP configuration start             *
+*********************************************** #}
+{%- if snmp %}
+    <snmp>
+        <system-name>{{ device.name }}</system-name>
+        <location>{{ device.location | default("UNDEFINED LOCATION", true) }}</location>
+        {%- if snmp["view"] %}
+        {%- for snmp_view in snmp["view"] %}
+        <view>
+            <name>{{ snmp_view["name"] }}</name>
+            {%- for oid in snmp_view["oid"] %}
+            <oid>
+                <name>{{ oid["name"] }}</name>
+            </oid>
+            {%- endfor %}
+        </view>
+        {%- endfor %}
+        {%- endif %}
+        {%- for list in snmp["client-list"] %}
+        <client-list>
+            <name>{{ list["name"] }}</name>
+            {%- for client in list["client-address-list"] %}
+            {%- if client["restrict"] %}
+            <client-address-list>
+                <name>{{ client["name"] }}</name>
+                <restrict/>
+            </client-address-list>
+            {%- else %}
+            <client-address-list>
+                <name>{{ client["name"] }}</name>
+            </client-address-list>
+            {%- endif %}
+            {%- endfor %}
+        </client-list>
+        {%- endfor %}
+        {%- for comm in snmp["community"] %}
+        <community>
+            <name>{{ comm["name"] }}</name>
+            {%- if comm["view"] %}
+            <view>{{ comm["view"] }}</view>
+            {%-endif %}
+            <authorization>{{ comm["authorization"] }}</authorization>
+            <client-list-name>{{ comm["client-list-name"] }}</client-list-name>
+            {%- for ri in comm["routing-instance"] %}
+            <routing-instance>
+                <name>{{ ri["name"]|upper }}</name>
+            </routing-instance>
+            {%- endfor %}
+        </community>
+        {%- endfor %}
+        {%- for tg in snmp["trap-group"] %}
+        <trap-group>
+            <name>{{ tg["name"] }}</name>
+            <destination-port>{{ tg["destination-port"] }}</destination-port>
+            {%- for target in tg["targets"] %}
+            <targets>
+                <name>{{ target["name"] }}</name>
+            </targets>
+            {%- endfor %}
+        </trap-group>
+        {%- endfor %}
+        {%- if snmp["routing-instance-access"] %}
+        <routing-instance-access>
+        {%- for ri in snmp["routing-instance-access"]["access-list"] %}
+            <access-list>
+                <name>{{ ri["name"]|upper }}</name>
+            </access-list>
+        {%- endfor %}
+        </routing-instance-access>
+        {%- endif %}
+    </snmp>
+{%- endif %}
+{#- **********************************************
+*           VLANs configuration start            *
+*********************************************** #}
+    <vlans>
+        <vlan>
+            <name>default</name>
+            <vlan-id>1</vlan-id>
+        </vlan>
+        {%- for vl in device.site.vlans.all() %}
+        <vlan>
+            <name>VL_{{ vl.name|upper }}</name>
+            <vlan-id>{{ vl.vid }}</vlan-id>
+            {%- for interface in interfaces %}
+            {%- if "irb" in interface.name %}
+            {%- set unit_id = interface.name.split('.')|last|int if '.' in interface.name else None %}
+            {%- if unit_id == vl.vid %}
+            <l3-interface>{{ interface.name }}</l3-interface>
+            {%- endif %}
+            {%- endif %}
+            {%- endfor %}
+        </vlan>
+        {%- endfor %}
+    </vlans>
+{#- **********************************************
+*            VLANs configuration end             *
+*********************************************** #}
+{#- **********************************************
+*     DHCP Local Server configuration start      *
+*********************************************** #}
+    {%- if dhcp_group_exists and dhcp_pools_default %}
+    <system>
+        <services>
+            <dhcp-local-server>
+            {%- for interface in interfaces %}
+            {%- if not interface.vrf and interface.cf.dhcp_group %}
+                <group>
+                    <name>DHCP_GR_{{ interface.cf.dhcp_group | upper }}</name>
+                    <interface>
+                        <name>{{ interface["name"] }}</name>
+                    </interface>
+                </group>
+            {%- endif %}
+            {%- endfor %}
+            </dhcp-local-server>
+        </services>
+    </system>
+    <access>
+        <address-assignment>
+        {%- for pool in dhcp_pools_default %}
+        {{- dhcp_pool_cfg(pool) | indent(12) }}
+        {%- endfor %}
+        </address-assignment>
+    </access>
+    {%- elif dhcp_group_exists and dhcp_pools_vrfs %}
+    <routing-instances>
+    {%- for instance in instances %}
+    {%- if instance.name in dhcp_pools_vrfs | selectattr("vrf.name", "defined") | map(attribute="vrf.name") | unique | list %}
+        <instance>
+            <name>{{ instance.name|upper }}</name>
+            <system>
+                <services>
+                    <dhcp-local-server>
+                    {%- for interface in interfaces %}
+                    {%- if interface.vrf.name|upper == instance.name|upper and interface.cf.dhcp_group %}
+                        <group>
+                            <name>DHCP_GR_{{ interface.cf.dhcp_group | upper }}</name>
+                            <interface>
+                                <name>{{ interface["name"] }}</name>
+                            </interface>
+                        </group>
+                    {%- endif %}
+                    {%- endfor %}
+                    </dhcp-local-server>
+                </services>
+            </system>
+            <access>
+                <address-assignment>
+                {%- for pool in dhcp_pools_vrfs %}
+                {%- if pool.vrf.name == instance.name %}
+                {{- dhcp_pool_cfg(pool) | indent(20) }}
+                {%- endif %}
+                {%- endfor %}
+                </address-assignment>
+            </access>
+        </instance>
+    {%- endif %}
+    {%- endfor %}
+    </routing-instances>
+    {%- endif %}
+{#- **********************************************
+*      DHCP Local Server configuration end       *
+*********************************************** #}
+{#- **********************************************
+*          DHCP Relay configuration start        *
+*********************************************** #}
+{%- if dhcp_relay is defined and dhcp_relay["default"] %}
+    <forwarding-options>
+        {{- dhcp_relay_cfg(dhcp_relay["default"]) | indent(8) }}
+    </forwarding-options>
+{%- endif %}
+{%- for instance in instances %}
+{%- if dhcp_relay is defined and dhcp_relay[instance.name] %}
+    <routing-instances>
+        <instance>
+            <name>{{ instance.name|upper }}</name>
+                <forwarding-options>
+                    {{- dhcp_relay_cfg(dhcp_relay[instance.name]) | indent(20) }}
+                </forwarding-options>
+        </instance>
+    </routing-instances>
+{%- endif %}
+{%- endfor %}
+{#- **********************************************
+*          DHCP Relay configuration end          *
+*********************************************** #}
+</configuration>
+{#- **********************************************
+*            Configuration block end             *
+*********************************************** #}
