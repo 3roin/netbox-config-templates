@@ -45,107 +45,107 @@
 {%- set lag_agg = interface.type == "lag" %}
 {%- set has_tagged_vlans = interface.tagged_vlans != None and 'tagged' in interface.mode %}
 {%- set is_access_mode = interface.mode == 'access' %}
-    {{ ifname }} {
-        {%- if not interface.enabled %}
-        disable;
-        {%- endif %}
-        {%- if '.' not in interface.name %}
-        description "{{ interface.description | default("Missing description", true) }}";
-        {%- endif %}
-        {%- if interface.mtu %}
-        mtu {{ interface.mtu }};
-        {%- endif %}
-        {%- if lag_agg %}
-        aggregated-ether-options {
-            lacp {
-                active;
-            }
-            minimum-links 1;
+{{ ifname }} {
+    {%- if not interface.enabled %}
+    disable;
+    {%- endif %}
+    {%- if '.' not in interface.name %}
+    description "{{ interface.description | default("Missing description", true) }}";
+    {%- endif %}
+    {%- if interface.mtu %}
+    mtu {{ interface.mtu }};
+    {%- endif %}
+    {%- if lag_agg %}
+    aggregated-ether-options {
+        lacp {
+            active;
         }
-        {%- endif %}
-        {%- if count_ipaddr > 0 %}
-        {%- if '.' in interface.name %}
-        unit {{ unit_id or 0 }} {
-            description "{{ interface.description | default("Missing description", true) }}";
-        {%- else %}
-        unit 0 {
-        {%- endif %}
-            family inet {
-                {%- for ipaddr in interface.ip_addresses.all() %}
-                {%- if fhrp_enabled and ipaddr.role == "vrrp" %}
-                address {{ ipaddr }} {
-                    {%- for gr in interface.fhrp_group_assignments.all() %}
-                    vrrp-group {{ gr.group.group_id }} {
-                        {%- for vip in gr.group.ip_addresses.all() %}
-                        virtual-address {{ (vip|string).split('/')|first }};
-                        {%- endfor %}
-                        priority {{ gr.priority }};
-                        accept-data;
-                        preempt {
-                            hold-time 180;
-                        }
-                    }
-                    {%- endfor %}
-                }
-                {%- else %}
-                address {{ ipaddr }};
-                {%- endif %}
-                {%- endfor %}
-            }
-        }
-        {%- elif lag_member %}
-        gigether-options {
-            802.3ad {
-                {{ interface.lag.name }};
-            }
-        }
-        {%- elif has_tagged_vlans %}
-        {%- if interface.untagged_vlan != None %}
-        native-vlan-id {{ interface.untagged_vlan.vid }};
-        {%- endif %}
-        unit 0 {
-            family ethernet-switching {
-                {%- for tag in interface.tags.all() %}
-                {%- for scp in storm_control_profiles %}
-                {%- if tag["name"] == scp["name"] %}
-                storm-control {{ scp["name"] }};
-                {%- endif %}
-                {%- endfor %}
-                {%- endfor %}
-                {%- if interface.mode == 'tagged' %}
-                interface-mode trunk;
-                vlan {
-                    members [ {% for vlan in interface.tagged_vlans.all() %}{{ vlan.vid }} {% endfor %}];
-                }
-                {%- elif 'tagged-all' in interface.mode %}
-                interface-mode trunk;
-                vlan {
-                    members all;
-                }
-            {%- endif %}
-            }
-        }
-        {%- elif is_access_mode %}
-        unit 0 {
-            family ethernet-switching {
-                {%- for tag in interface.tags.all() %}
-                {%- for scp in storm_control_profiles %}
-                {%- if tag["name"] == scp["name"] %}
-                storm-control {{ scp["name"] }};
-                {%- endif %}
-                {%- endfor %}
-                {%- endfor%}
-                interface-mode access;
-                vlan {
-                    members {{ interface.untagged_vlan.vid }};
-                }
-            }
-        }
-        {%- else %}
-        unit 0;
-        {%- endif %}
+        minimum-links 1;
     }
-    {%- endfor %}
+    {%- endif %}
+    {%- if count_ipaddr > 0 %}
+    {%- if '.' in interface.name %}
+    unit {{ unit_id or 0 }} {
+        description "{{ interface.description | default("Missing description", true) }}";
+    {%- else %}
+    unit 0 {
+    {%- endif %}
+        family inet {
+            {%- for ipaddr in interface.ip_addresses.all() %}
+            {%- if fhrp_enabled and ipaddr.role == "vrrp" %}
+            address {{ ipaddr }} {
+                {%- for gr in interface.fhrp_group_assignments.all() %}
+                vrrp-group {{ gr.group.group_id }} {
+                    {%- for vip in gr.group.ip_addresses.all() %}
+                    virtual-address {{ (vip|string).split('/')|first }};
+                    {%- endfor %}
+                    priority {{ gr.priority }};
+                    accept-data;
+                    preempt {
+                        hold-time 180;
+                    }
+                }
+                {%- endfor %}
+            }
+            {%- else %}
+            address {{ ipaddr }};
+            {%- endif %}
+            {%- endfor %}
+        }
+    }
+    {%- elif lag_member %}
+    gigether-options {
+        802.3ad {
+            {{ interface.lag.name }};
+        }
+    }
+    {%- elif has_tagged_vlans %}
+    {%- if interface.untagged_vlan != None %}
+    native-vlan-id {{ interface.untagged_vlan.vid }};
+    {%- endif %}
+    unit 0 {
+        family ethernet-switching {
+            {%- for tag in interface.tags.all() %}
+            {%- for scp in storm_control_profiles %}
+            {%- if tag["name"] == scp["name"] %}
+            storm-control {{ scp["name"] }};
+            {%- endif %}
+            {%- endfor %}
+            {%- endfor %}
+            {%- if interface.mode == 'tagged' %}
+            interface-mode trunk;
+            vlan {
+                members [ {% for vlan in interface.tagged_vlans.all() %}{{ vlan.vid }} {% endfor %}];
+            }
+            {%- elif 'tagged-all' in interface.mode %}
+            interface-mode trunk;
+            vlan {
+                members all;
+            }
+        {%- endif %}
+        }
+    }
+    {%- elif is_access_mode %}
+    unit 0 {
+        family ethernet-switching {
+            {%- for tag in interface.tags.all() %}
+            {%- for scp in storm_control_profiles %}
+            {%- if tag["name"] == scp["name"] %}
+            storm-control {{ scp["name"] }};
+            {%- endif %}
+            {%- endfor %}
+            {%- endfor%}
+            interface-mode access;
+            vlan {
+                members {{ interface.untagged_vlan.vid }};
+            }
+        }
+    }
+    {%- else %}
+    unit 0;
+    {%- endif %}
+}
+{%- endfor %}
 {%- endmacro %}
 {#-      Static routes configuration macro       #}
 {%- macro static_route_cfg(all_static_routes) %}
@@ -617,7 +617,7 @@ virtual-chassis {
 ###           Interfaces configuration           ###
 ************************************************** #}
 interfaces {
-{{- ifs_config(interfaces) }}
+{{- ifs_config(interfaces) | indent(4) }}
 }
 {#- **************************************************
 ###              VLANs configuration             ###
