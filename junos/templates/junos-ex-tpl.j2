@@ -112,7 +112,7 @@
             {%- endif %}
             {%- endfor %}
             {%- endfor %}
-            {%- if interface.mode == 'tagged' %}
+            {%- if interface.mode == 'tagged' and  interface.tagged_vlans.all()|length > 0 %}
             interface-mode trunk;
             vlan {
                 members [ {% for vlan in interface.tagged_vlans.all() %}{{ vlan.vid }} {% endfor %}];
